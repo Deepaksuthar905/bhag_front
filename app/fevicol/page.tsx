@@ -1,30 +1,35 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Star, Heart } from "lucide-react";
-
-interface Product {
-    id: number;
-    name: string;
-    price: string;
-    image: string;
-    rating: number;
-    isNew?: boolean;
-}
+import { useRouter } from "next/navigation";
+import { Heart } from "lucide-react";
+import { fetchApi, API_ENDPOINTS } from "@/lib/api";
+import { Product, ApiResponse } from "@/lib/types";
 
 export default function FevicolPage() {
+    const router = useRouter();
     const [products, setProducts] = useState<Product[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [loadedImages, setLoadedImages] = useState<Set<number>>(new Set());
+    const [loadedImages, setLoadedImages] = useState<Set<string>>(new Set());
 
     useEffect(() => {
         const fetchProducts = async () => {
             try {
                 setIsLoading(true);
-                const res = await fetch("/api/products");
-                if (!res.ok) throw new Error("Failed to fetch");
-                const data = await res.json();
-                setProducts(data);
+                // Fevicol category ID: 697356269f94fbaf3dfa0e84
+                const response = await fetchApi<ApiResponse<Product[]>>(API_ENDPOINTS.productsByCategory("697356269f94fbaf3dfa0e84"));
+                
+                // Handle different response structures
+                let productsData: Product[] = [];
+                if (Array.isArray(response.data)) {
+                    productsData = response.data;
+                } else if (response.data?.products && Array.isArray(response.data.products)) {
+                    productsData = response.data.products;
+                } else if (Array.isArray(response)) {
+                    productsData = response;
+                }
+                
+                setProducts(productsData);
             } catch (error) {
                 console.error("Failed to fetch products", error);
             } finally {
@@ -35,8 +40,27 @@ export default function FevicolPage() {
         fetchProducts();
     }, []);
 
-    const handleImageLoad = (productId: number) => {
+    const handleProductClick = (productId: string) => {
+        router.push(`/product/${productId}`);
+    };
+
+    const handleImageLoad = (productId: string) => {
         setLoadedImages((prev) => new Set(prev).add(productId));
+    };
+
+    // Get product image - use first image from array or fallback
+    const getProductImage = (product: Product): string => {
+        if (product.images && product.images.length > 0) {
+            const img = product.images[0];
+            // If it's a full URL, use it directly; otherwise, assume it's in public folder
+            return img.startsWith("http") ? img : `/${img}`;
+        }
+        return "/placeholder.jpg"; // fallback image
+    };
+
+    // Format price with rupee symbol
+    const formatPrice = (price: number): string => {
+        return `₹${price.toLocaleString("en-IN")}`;
     };
 
     return (
@@ -76,12 +100,25 @@ export default function FevicolPage() {
                             </div>
                         ))}
                     </div>
+                ) : products.length === 0 ? (
+                    <div className="text-center py-16">
+                        <div className="max-w-md mx-auto">
+                            <div className="w-24 h-24 mx-auto mb-6 bg-gray-100 rounded-full flex items-center justify-center">
+                                <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                                </svg>
+                            </div>
+                            <h3 className="text-xl font-semibold text-gray-900 mb-2">No Products Found</h3>
+                            <p className="text-gray-600">We couldn't find any Fevicol products at the moment. Please check back later.</p>
+                        </div>
+                    </div>
                 ) : (
                     <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
                         {products.map((product, index) => (
                             <div
-                                key={product.id}
-                                className="group bg-white rounded-xl overflow-hidden shadow-md hover:shadow-2xl transition-all duration-500 border border-gray-200 hover:border-gray-400 transform hover:-translate-y-3 hover:scale-[1.02] animate-fadeInUp"
+                                key={product._id}
+                                onClick={() => handleProductClick(product._id)}
+                                className="cursor-pointer group bg-white rounded-xl overflow-hidden shadow-md hover:shadow-2xl transition-all duration-500 border border-gray-200 hover:border-gray-400 transform hover:-translate-y-3 hover:scale-[1.02] animate-fadeInUp"
                                 style={{
                                     animationDelay: `${index * 0.1}s`,
                                     animationFillMode: "both",
@@ -89,26 +126,33 @@ export default function FevicolPage() {
                             >
                                 <div className="relative overflow-hidden aspect-square bg-gradient-to-br from-gray-50 to-gray-100">
                                     {/* Shimmer effect on image load */}
-                                    {!loadedImages.has(product.id) && (
+                                    {!loadedImages.has(product._id) && (
                                         <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer"></div>
                                     )}
                                     
-                                    {product.isNew && (
-                                        <span className="absolute top-2 left-2 sm:top-4 sm:left-4 bg-gradient-to-r from-red-500 to-pink-500 text-white px-2 py-0.5 sm:px-4 sm:py-1.5 text-[10px] sm:text-xs font-bold rounded-full z-10 shadow-lg animate-bounceIn">
-                                            NEW
+                                    {product.stock && product.stock > 0 && (
+                                        <span className="absolute top-2 left-2 sm:top-4 sm:left-4 bg-gradient-to-r from-green-500 to-emerald-500 text-white px-2 py-0.5 sm:px-4 sm:py-1.5 text-[10px] sm:text-xs font-bold rounded-full z-10 shadow-lg animate-bounceIn">
+                                            In Stock
                                         </span>
                                     )}
                                     
-                                    <button className="absolute top-2 right-2 sm:top-4 sm:right-4 bg-white p-1.5 sm:p-2.5 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-all duration-300 z-10 hover:bg-red-50 hover:scale-110 active:scale-95 animate-scaleIn">
+                                    <button 
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="absolute top-2 right-2 sm:top-4 sm:right-4 bg-white p-1.5 sm:p-2.5 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-all duration-300 z-10 hover:bg-red-50 hover:scale-110 active:scale-95 animate-scaleIn"
+                                    >
                                         <Heart size={14} className="sm:w-[18px] sm:h-[18px] text-gray-700 group-hover:text-red-500 transition-colors" />
                                     </button>
                                     
                                     <img
-                                        src={product.image}
+                                        src={getProductImage(product)}
                                         alt={product.name}
-                                        onLoad={() => handleImageLoad(product.id)}
+                                        onLoad={() => handleImageLoad(product._id)}
+                                        onError={(e) => {
+                                            (e.target as HTMLImageElement).src = "/placeholder.jpg";
+                                            handleImageLoad(product._id);
+                                        }}
                                         className={`w-full h-full object-cover transition-all duration-700 group-hover:scale-110 ${
-                                            loadedImages.has(product.id) ? "opacity-100" : "opacity-0"
+                                            loadedImages.has(product._id) ? "opacity-100" : "opacity-0"
                                         }`}
                                     />
                                     
@@ -119,30 +163,30 @@ export default function FevicolPage() {
                                 </div>
                                 
                                 <div className="p-3 sm:p-5 bg-gradient-to-b from-white to-gray-50">
-                                    <div className="flex items-center mb-2 sm:mb-3">
-                                        {[...Array(5)].map((_, i) => (
-                                            <Star
-                                                key={i}
-                                                size={12}
-                                                className={`sm:w-4 sm:h-4 transition-all duration-300 ${
-                                                    i < product.rating
-                                                        ? "fill-yellow-400 text-yellow-400 drop-shadow-sm group-hover:scale-110 group-hover:rotate-12"
-                                                        : "text-gray-300"
-                                                }`}
-                                                style={{ transitionDelay: `${i * 50}ms` }}
-                                            />
-                                        ))}
-                                    </div>
+                                    {product.category && (
+                                        <span className="text-xs text-gray-500 uppercase tracking-wide">
+                                            {product.category.name}
+                                        </span>
+                                    )}
                                     
                                     <h3 className="font-bold mb-1 sm:mb-2 text-gray-900 group-hover:text-gray-700 transition-all duration-300 text-sm sm:text-lg group-hover:translate-x-1 line-clamp-2">
                                         {product.name}
                                     </h3>
                                     
+                                    {product.material && (
+                                        <p className="text-xs text-gray-500 mb-1">
+                                            {product.material}
+                                        </p>
+                                    )}
+                                    
                                     <div className="flex items-center justify-between mt-2 sm:mt-3">
                                         <p className="text-base sm:text-xl font-bold text-gray-700 group-hover:scale-105 transition-transform duration-300">
-                                            {product.price}
+                                            {formatPrice(product.price)}
                                         </p>
-                                        <button className="px-2 py-1 sm:px-4 sm:py-1.5 bg-gray-700 text-white text-xs sm:text-sm font-semibold rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-300 hover:bg-gray-800 hover:shadow-lg hover:scale-110 active:scale-95 transform hover:translate-x-1">
+                                        <button 
+                                            onClick={(e) => e.stopPropagation()}
+                                            className="px-2 py-1 sm:px-4 sm:py-1.5 bg-gray-700 text-white text-xs sm:text-sm font-semibold rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-300 hover:bg-gray-800 hover:shadow-lg hover:scale-110 active:scale-95 transform hover:translate-x-1"
+                                        >
                                             View
                                         </button>
                                     </div>
@@ -153,7 +197,7 @@ export default function FevicolPage() {
                 )}
             </div>
 
-            {/* Custom Animations */}
+            {/* Custom Animations - Same as hardware page */}
             <style jsx>{`
                 @keyframes fadeInDown {
                     from {
@@ -236,15 +280,6 @@ export default function FevicolPage() {
                     }
                 }
 
-                @keyframes gradient {
-                    0%, 100% {
-                        background-position: 0% 50%;
-                    }
-                    50% {
-                        background-position: 100% 50%;
-                    }
-                }
-
                 .animate-fadeInDown {
                     animation: fadeInDown 0.8s ease-out;
                 }
@@ -271,11 +306,6 @@ export default function FevicolPage() {
 
                 .animate-scaleIn {
                     animation: scaleIn 0.3s ease-out;
-                }
-
-                .animate-gradient {
-                    background-size: 200% auto;
-                    animation: gradient 3s ease infinite;
                 }
 
                 .delay-200 {

@@ -16,8 +16,20 @@ export default function HardwarePage() {
         const fetchProducts = async () => {
             try {
                 setIsLoading(true);
-                const response = await fetchApi<ApiResponse<Product[]>>(API_ENDPOINTS.products);
-                setProducts(response.data);
+                // Hardware category ID: 693c4aa7013df282aa0ede1a
+                const response = await fetchApi<ApiResponse<Product[]>>(API_ENDPOINTS.productsByCategory("693c4aa7013df282aa0ede1a"));
+                
+                // Handle different response structures
+                let productsData: Product[] = [];
+                if (Array.isArray(response.data)) {
+                    productsData = response.data;
+                } else if (response.data?.products && Array.isArray(response.data.products)) {
+                    productsData = response.data.products;
+                } else if (Array.isArray(response)) {
+                    productsData = response;
+                }
+                
+                setProducts(productsData);
             } catch (error) {
                 console.error("Failed to fetch products", error);
             } finally {
@@ -87,6 +99,18 @@ export default function HardwarePage() {
                                 </div>
                             </div>
                         ))}
+                    </div>
+                ) : products.length === 0 ? (
+                    <div className="text-center py-16">
+                        <div className="max-w-md mx-auto">
+                            <div className="w-24 h-24 mx-auto mb-6 bg-gray-100 rounded-full flex items-center justify-center">
+                                <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                                </svg>
+                            </div>
+                            <h3 className="text-xl font-semibold text-gray-900 mb-2">No Products Found</h3>
+                            <p className="text-gray-600">We couldn't find any hardware products at the moment. Please check back later.</p>
+                        </div>
                     </div>
                 ) : (
                     <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
