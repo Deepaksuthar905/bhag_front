@@ -4,15 +4,8 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChevronRight, Heart, Star } from "lucide-react";
-
-interface Product {
-  id: number;
-  name: string;
-  price: string;
-  image: string;
-  rating: number;
-  isNew?: boolean;
-}
+import { fetchApi, API_ENDPOINTS } from "@/lib/api";
+import { Product, ApiResponse } from "@/lib/types";
 
 export default function HomePage() {
   const router = useRouter();
@@ -99,12 +92,24 @@ export default function HomePage() {
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        const res = await fetch("/api/products");
-        if (!res.ok) throw new Error("Failed to fetch");
-        const data = await res.json();
-        setFeaturedProducts(data);
+        // Handicraft category ID: 693c4b17013df282aa0ede20
+        const response = await fetchApi<ApiResponse<Product[]>>(API_ENDPOINTS.productsByCategory("693c4b17013df282aa0ede20"));
+        
+        // Handle different response structures
+        let productsData: Product[] = [];
+        if (Array.isArray(response.data)) {
+          productsData = response.data;
+        } else if (response.data && Array.isArray(response.data)) {
+          productsData = response.data;
+        } else if (Array.isArray(response)) {
+          productsData = response;
+        }
+        
+        // Limit to 8 products
+        setFeaturedProducts(productsData.slice(0, 8));
       } catch (error) {
         console.error("Failed to fetch products", error);
+        setFeaturedProducts([]);
       }
     };
 
@@ -213,49 +218,71 @@ export default function HomePage() {
             <p className="text-gray-600">Handpicked items just for you</p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-            {featuredProducts.map((product, index) => (
-              <div
-                key={product.id}
-                className="group bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300"
-                style={{ animationDelay: `${index * 0.1}s` }}
-              >
-                <div className="relative overflow-hidden aspect-square">
-                  {product.isNew && (
-                    <span className="absolute top-4 left-4 bg-black text-white px-3 py-1 text-xs font-semibold rounded-full z-10">
-                      NEW
-                    </span>
-                  )}
-                  <button className="absolute top-4 right-4 bg-white p-2 rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                    <Heart size={18} />
-                  </button>
-                  <img
-                    src={product.image}
-                    alt={product.name}
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                  />
-                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
-                </div>
-                <div className="p-4">
-                  <div className="flex items-center mb-2">
-                    {[...Array(5)].map((_, i) => (
-                      <Star
-                        key={i}
-                        size={14}
-                        className={
-                          i < product.rating
-                            ? "fill-yellow-400 text-yellow-400"
-                            : "text-gray-300"
-                        }
-                      />
-                    ))}
-                  </div>
-                  <h3 className="font-semibold mb-2 group-hover:text-gray-600 transition-colors">
-                    {product.name}
-                  </h3>
-                  <p className="text-lg font-bold">{product.price}</p>
-                </div>
+            {featuredProducts.length === 0 ? (
+              <div className="col-span-full text-center py-12">
+                <p className="text-gray-500">No featured products available</p>
               </div>
-            ))}
+            ) : (
+              featuredProducts.map((product, index) => {
+                const getProductImage = (product: Product): string => {
+                  if (product.images && product.images.length > 0) {
+                    const img = product.images[0];
+                    return img.startsWith("http") ? img : `/${img}`;
+                  }
+                  return "/placeholder.jpg";
+                };
+
+                const formatPrice = (price: number): string => {
+                  return `₹${price.toLocaleString("en-IN")}`;
+                };
+
+                return (
+                  <Link
+                    key={product._id}
+                    href={`/product/${product._id}`}
+                    className="group bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 block"
+                    style={{ animationDelay: `${index * 0.1}s` }}
+                  >
+                    <div className="relative overflow-hidden aspect-square">
+                      {product.stock && product.stock > 0 && (
+                        <span className="absolute top-4 left-4 bg-green-500 text-white px-3 py-1 text-xs font-semibold rounded-full z-10">
+                          In Stock
+                        </span>
+                      )}
+                      <button 
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                        }}
+                        className="absolute top-4 right-4 bg-white p-2 rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-opacity z-10 hover:bg-red-50"
+                      >
+                        <Heart size={18} className="text-gray-700" />
+                      </button>
+                      <img
+                        src={getProductImage(product)}
+                        alt={product.name}
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = "/placeholder.jpg";
+                        }}
+                      />
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+                    </div>
+                    <div className="p-4">
+                      {product.category && (
+                        <p className="text-xs text-gray-500 mb-1 uppercase tracking-wide">
+                          {product.category.name}
+                        </p>
+                      )}
+                      <h3 className="font-semibold mb-2 group-hover:text-gray-600 transition-colors line-clamp-2">
+                        {product.name}
+                      </h3>
+                      <p className="text-lg font-bold text-gray-900">{formatPrice(product.price)}</p>
+                    </div>
+                  </Link>
+                );
+              })
+            )}
           </div>
         </div>
       </section>
