@@ -69,19 +69,20 @@ export default function HomePage() {
   ];
 
   const collections = [
-    {
-      title: "Spring Essentials",
-      subtitle: "Fresh & Light",
-      image:
-        "https://images.unsplash.com/photo-1469334031218-e382a71b716b?w=800&q=80",
-    },
-    {
-      title: "Urban Street",
-      subtitle: "Bold & Edgy",
-      image:
-        "https://images.unsplash.com/photo-1479064555552-3ef4979f8908?w=800&q=80",
-    },
-  ];
+  {
+    title: "Premium Hardware",
+    subtitle: "Strong & Reliable",
+    image:
+      "home-bg-23.jpg",
+  },
+  {
+    title: "Quality Plywood",
+    subtitle: "Durable & Elegant",
+    image:
+      "https://images.unsplash.com/photo-1600121848594-d8644e57abab?w=800&q=80",
+  },
+];
+
 
   useEffect(() => {
     const timer = setInterval(() => {

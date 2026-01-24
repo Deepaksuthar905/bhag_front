@@ -5,12 +5,17 @@ import { useRouter } from "next/navigation";
 import { Heart } from "lucide-react";
 import { fetchApi, API_ENDPOINTS } from "@/lib/api";
 import { Product, ApiResponse } from "@/lib/types";
+import { useWishlist } from "@/context/WishlistContext";
+import { useAuth } from "@/context/AuthContext";
 
 export default function PlywoodPage() {
     const router = useRouter();
     const [products, setProducts] = useState<Product[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [loadedImages, setLoadedImages] = useState<Set<string>>(new Set());
+    const [togglingWishlistId, setTogglingWishlistId] = useState<string | null>(null);
+    const { isInWishlist, addToWishlist, removeFromWishlist } = useWishlist();
+    const { isAuthenticated } = useAuth();
 
     useEffect(() => {
         const fetchProducts = async () => {
@@ -46,6 +51,28 @@ export default function PlywoodPage() {
 
     const handleImageLoad = (productId: string) => {
         setLoadedImages((prev) => new Set(prev).add(productId));
+    };
+
+    const handleToggleWishlist = async (e: React.MouseEvent, productId: string) => {
+        e.stopPropagation();
+        
+        if (!isAuthenticated) {
+            router.push("/login");
+            return;
+        }
+
+        setTogglingWishlistId(productId);
+        try {
+            if (isInWishlist(productId)) {
+                await removeFromWishlist(productId);
+            } else {
+                await addToWishlist(productId);
+            }
+        } catch (error) {
+            console.error("Failed to toggle wishlist:", error);
+        } finally {
+            setTogglingWishlistId(null);
+        }
     };
 
     const getProductImage = (product: Product): string => {
@@ -131,10 +158,22 @@ export default function PlywoodPage() {
                                     )}
                                     
                                     <button 
-                                        onClick={(e) => e.stopPropagation()}
-                                        className="absolute top-2 right-2 sm:top-4 sm:right-4 bg-white p-1.5 sm:p-2.5 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-all duration-300 z-10 hover:bg-red-50 hover:scale-110 active:scale-95 animate-scaleIn"
+                                        onClick={(e) => handleToggleWishlist(e, product._id)}
+                                        disabled={togglingWishlistId === product._id}
+                                        className={`absolute top-2 right-2 sm:top-4 sm:right-4 bg-white p-1.5 sm:p-2.5 rounded-full shadow-lg transition-all duration-300 z-10 hover:bg-red-50 hover:scale-110 active:scale-95 animate-scaleIn ${
+                                            isInWishlist(product._id) 
+                                                ? "opacity-100" 
+                                                : "opacity-0 group-hover:opacity-100"
+                                        } ${togglingWishlistId === product._id ? "opacity-50 cursor-not-allowed" : ""}`}
                                     >
-                                        <Heart size={14} className="sm:w-[18px] sm:h-[18px] text-gray-700 group-hover:text-red-500 transition-colors" />
+                                        <Heart 
+                                            size={14} 
+                                            className={`sm:w-[18px] sm:h-[18px] transition-colors ${
+                                                isInWishlist(product._id)
+                                                    ? "fill-red-500 text-red-500"
+                                                    : "text-gray-700 group-hover:text-red-500"
+                                            }`} 
+                                        />
                                     </button>
                                     
                                     <img
