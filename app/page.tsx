@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ChevronRight, Heart, Star } from "lucide-react";
 
 interface Product {
@@ -14,6 +15,7 @@ interface Product {
 }
 
 export default function HomePage() {
+  const router = useRouter();
   const [currentSlide, setCurrentSlide] = useState(0);
   const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
 
@@ -24,6 +26,7 @@ export default function HomePage() {
       description: "Built for strength, designed for perfection.",
       image: "/gemini-img2.png",
       cta: "Shop Now",
+      href: "/plywood",
     },
     {
       title: "Trusted Door Hardware",
@@ -31,6 +34,7 @@ export default function HomePage() {
       description: "Durable locking solutions for homes and commercial spaces.",
       image: "/locks1.jpg",
       cta: "Explore",
+      href: "/hardware",
     },
     {
       title: "Right Tool. Right Job.",
@@ -38,6 +42,7 @@ export default function HomePage() {
       description: "Precision tools for home, workshop, and industry.",
       image: "/tools.png",
       cta: "Discover",
+      href: "/hardware",
     },
   ];
 
@@ -137,7 +142,10 @@ export default function HomePage() {
                 <p className="text-lg md:text-xl mb-8 opacity-0 animate-[fadeInUp_0.8s_ease-out_0.6s_forwards]">
                   {slide.description}
                 </p>
-                <button className="bg-white text-gray-900 px-8 py-4 rounded-full font-semibold hover:bg-gray-100 transition-all transform hover:scale-105 opacity-0 animate-[fadeInUp_0.8s_ease-out_0.8s_forwards]">
+                <button 
+                  onClick={() => router.push(slide.href)}
+                  className="bg-white text-gray-900 px-8 py-4 rounded-full font-semibold hover:bg-gray-100 transition-all transform hover:scale-105 opacity-0 animate-[fadeInUp_0.8s_ease-out_0.8s_forwards]"
+                >
                   {slide.cta}
                   <ChevronRight className="inline ml-2" size={20} />
                 </button>
