@@ -8,6 +8,7 @@ export const API_ENDPOINTS = {
     products: "/products",
     productById: (id: string) => `/product/${id}`,
     productsByCategory: (categoryId: string) => `/products/category/${categoryId}`,
+    subcategoriesByCategory: (categoryId: string) => `/subcategories/category/${categoryId}`,
     // Cart endpoints
     cart: (userId: string) => `/cart/?userId=${userId}`,
     addToCart: "/cart/add",

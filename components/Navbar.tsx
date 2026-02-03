@@ -2,10 +2,12 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import Link from "next/link";
 import { Search, Heart, ShoppingBag, Menu, X, User, LogOut, LogIn, UserCircle } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useCart } from "@/context/CartContext";
 import { useWishlist } from "@/context/WishlistContext";
+import { fetchApi, API_ENDPOINTS } from "@/lib/api";
 
 export default function Navbar() {
     const router = useRouter();
@@ -88,14 +90,64 @@ export default function Navbar() {
         }
     };
 
-    const navItems = [
+    // categoryId used for fetching subcategories on hover (GET /subcategories/category/:categoryId)
+    const navItems: { name: string; href: string; categoryId?: string }[] = [
         { name: "Home", href: "/" },
-        { name: "Hardware", href: "/hardware" },
-        { name: "Plywood", href: "/plywood" },
-        { name: "Fevicol", href: "/fevicol" },
-        { name: "Furniture", href: "/furniture" },
-        { name: "Handicrafts", href: "/handicraft" },
+        { name: "Hardware", href: "/hardware", categoryId: "693c4aa7013df282aa0ede1a" },
+        { name: "Plywood", href: "/plywood", categoryId: "693c4ae6013df282aa0ede1c" },
+        { name: "Fevicol", href: "/fevicol", categoryId: "697356269f94fbaf3dfa0e84" },
+        { name: "Furniture", href: "/furniture", categoryId: "697356199f94fbaf3dfa0e82" },
+        { name: "Handicrafts", href: "/handicraft", categoryId: "693c4b17013df282aa0ede20" },
     ];
+
+    const [hoveredNav, setHoveredNav] = useState<string | null>(null);
+    const [subcategories, setSubcategories] = useState<{ _id: string; name: string; slug?: string }[]>([]);
+    const [loadingSubcategories, setLoadingSubcategories] = useState(false);
+    const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+    const handleNavMouseEnter = (item: (typeof navItems)[0]) => {
+        if (hoverTimeoutRef.current) {
+            clearTimeout(hoverTimeoutRef.current);
+            hoverTimeoutRef.current = null;
+        }
+        setHoveredNav(item.name);
+        if (!item.categoryId) {
+            setSubcategories([]);
+            return;
+        }
+        setLoadingSubcategories(true);
+        setSubcategories([]);
+        fetchApi<{ data?: { _id: string; name: string; slug?: string }[] }>(
+            API_ENDPOINTS.subcategoriesByCategory(item.categoryId)
+        )
+            .then((res) => {
+                const raw = res as any;
+                const list = Array.isArray(raw?.data) ? raw.data
+                    : Array.isArray(raw?.subcategories) ? raw.subcategories
+                    : Array.isArray(raw) ? raw : [];
+                setSubcategories(list);
+            })
+            .catch(() => setSubcategories([]))
+            .finally(() => setLoadingSubcategories(false));
+    };
+
+    const handleNavMouseLeave = () => {
+        hoverTimeoutRef.current = setTimeout(() => {
+            setHoveredNav(null);
+            setSubcategories([]);
+        }, 150);
+    };
+
+    const handleDropdownMouseEnter = () => {
+        if (hoverTimeoutRef.current) {
+            clearTimeout(hoverTimeoutRef.current);
+            hoverTimeoutRef.current = null;
+        }
+    };
+
+    const handleDropdownMouseLeave = () => {
+        handleNavMouseLeave();
+    };
 
     return (
         <nav
@@ -113,16 +165,55 @@ export default function Navbar() {
                         </span>
                     </div>
 
-                    {/* Desktop Menu */}
+                    {/* Desktop Menu with subcategory dropdown on hover */}
                     <div className="hidden md:flex items-center space-x-8">
                         {navItems.map((item) => (
-                            <a
+                            <div
                                 key={item.name}
-                                href={item.href}
-                                className={`text-sm font-medium transition-colors hover:text-gray-700 font-['Inter'] ${textColor}`}
+                                className="relative py-4"
+                                onMouseEnter={() => handleNavMouseEnter(item)}
+                                onMouseLeave={handleNavMouseLeave}
                             >
-                                {item.name}
-                            </a>
+                                <Link
+                                    href={item.href}
+                                    className={`inline-flex items-center text-sm font-medium transition-colors hover:text-gray-700 font-['Inter'] ${textColor}`}
+                                >
+                                    {item.name}
+                                </Link>
+                                {/* Subcategories dropdown - show below when hovered and has categoryId */}
+                                {item.categoryId && hoveredNav === item.name && (
+                                    <div
+                                        className="absolute left-0 top-full pt-1 min-w-[180px] z-50"
+                                        onMouseEnter={handleDropdownMouseEnter}
+                                        onMouseLeave={handleDropdownMouseLeave}
+                                    >
+                                        <div className={`rounded-xl shadow-lg border overflow-hidden ${
+                                            shouldShowWhiteBg ? "bg-white border-gray-200" : "bg-white border-gray-200"
+                                        }`}>
+                                            {loadingSubcategories ? (
+                                                <div className="px-4 py-6 flex justify-center">
+                                                    <div className="w-6 h-6 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
+                                                </div>
+                                            ) : subcategories.length > 0 ? (
+                                                <ul className="py-2">
+                                                    {subcategories.map((sub) => (
+                                                        <li key={sub._id}>
+                                                            <Link
+                                                                href={`${item.href}?subcategory=${encodeURIComponent(sub._id)}`}
+                                                                className="block px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-100 transition-colors font-['Inter']"
+                                                            >
+                                                                {sub.name}
+                                                            </Link>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            ) : (
+                                                <p className="px-4 py-3 text-sm text-gray-500 font-['Inter']">No subcategories</p>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
                         ))}
                     </div>
 
