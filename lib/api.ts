@@ -9,6 +9,7 @@ export const API_ENDPOINTS = {
     productById: (id: string) => `/product/${id}`,
     productsByCategory: (categoryId: string) => `/products/category/${categoryId}`,
     subcategoriesByCategory: (categoryId: string) => `/subcategories/category/${categoryId}`,
+    subcategoryById: (id: string) => `/subcategory/${id}`,
     // Cart endpoints
     cart: (userId: string) => `/cart/?userId=${userId}`,
     addToCart: "/cart/add",
@@ -21,6 +22,8 @@ export const API_ENDPOINTS = {
     deleteAddress: (id: string, userId: string) => `/address/delete/${id}?userId=${userId}`,
     // Order endpoints
     orders: (userId: string) => `/orders/?userId=${userId}`,
+    orderCreate: "/orders/create",
+    uploadScreenshot: "/orders/upload-screenshot",
     // Wishlist endpoints
     wishlist: (userId: string) => `/wishlist/?userId=${userId}`,
     addToWishlist: "/wishlist/add",
@@ -57,6 +60,23 @@ export async function fetchApi<T>(endpoint: string, options?: RequestInit): Prom
             "Content-Type": "application/json",
             ...(headers as Record<string, string>),
         },
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `API Error: ${response.status} ${response.statusText}`);
+    }
+
+    return response.json();
+}
+
+// Upload file (e.g. screenshot) - FormData, no Content-Type (browser sets multipart boundary)
+export async function uploadApiFile<T>(endpoint: string, formData: FormData): Promise<T> {
+    const url = getApiUrl(endpoint);
+    const response = await fetch(url, {
+        method: "POST",
+        body: formData,
+        // Do not set Content-Type; browser sets multipart/form-data with boundary
     });
 
     if (!response.ok) {

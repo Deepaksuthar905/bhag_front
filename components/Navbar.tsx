@@ -159,9 +159,12 @@ export default function Navbar() {
         >
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex justify-between items-center">
-                    <div className={`text-2xl font-bold tracking-wider font-['Poppins'] ${searchOpen ? "hidden md:block" : ""}`}>
+                    <div
+                        className={`text-2xl md:text-3xl tracking-wide font-extrabold md:font-bold ${searchOpen ? "hidden md:block" : ""}`}
+                        style={{ fontFamily: "var(--font-great-vibes)" }}
+                    >
                         <span className={textColor}>
-                            BHAGWATI
+                            Bhagwati
                         </span>
                     </div>
 

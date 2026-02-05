@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
 import {
     ArrowLeft,
     Package,
@@ -23,26 +22,28 @@ import { useAuth } from "@/context/AuthContext";
 import { fetchApi, API_ENDPOINTS, API_BASE_URL } from "@/lib/api";
 import { ApiResponse } from "@/lib/types";
 
-// Order item interface
+// Order item interface (product may be populated object or just id string)
 interface OrderItem {
-    _id: string;
+    _id?: string;
     product: {
         _id: string;
-        name: string;
-        price: number;
+        name?: string;
+        price?: number;
         images?: string[];
-    };
+    } | string;
     quantity: number;
     price: number;
     selectedSize?: string;
 }
 
-// Order interface
+// Order interface (backend may use total or totalAmount)
 interface Order {
     _id: string;
-    userId: string;
-    items: OrderItem[];
-    totalAmount: number;
+    userId?: string;
+    user?: string;
+    items?: OrderItem[];
+    totalAmount?: number;
+    total?: number;
     status: "pending" | "confirmed" | "processing" | "shipped" | "delivered" | "cancelled";
     shippingAddress?: {
         name?: string;
@@ -103,19 +104,20 @@ export default function OrdersPage() {
                 console.log("Orders response:", response);
 
                 let ordersData: Order[] = [];
-                if (response?.data?.orders && Array.isArray(response.data.orders)) {
-                    ordersData = response.data.orders;
-                } else if (response?.data?.data && Array.isArray(response.data.data)) {
-                    ordersData = response.data.data;
-                } else if (response?.data && Array.isArray(response.data)) {
-                    ordersData = response.data;
-                } else if (response?.orders && Array.isArray(response.orders)) {
-                    ordersData = response.orders;
-                } else if (Array.isArray(response)) {
-                    ordersData = response;
+                const raw = response as any;
+                if (raw?.data?.orders && Array.isArray(raw.data.orders)) {
+                    ordersData = raw.data.orders;
+                } else if (raw?.data?.data && Array.isArray(raw.data.data)) {
+                    ordersData = raw.data.data;
+                } else if (Array.isArray(raw?.data)) {
+                    ordersData = raw.data;
+                } else if (Array.isArray(raw?.orders)) {
+                    ordersData = raw.orders;
+                } else if (Array.isArray(raw)) {
+                    ordersData = raw;
                 }
 
-                setOrders(ordersData);
+                setOrders(Array.isArray(ordersData) ? ordersData : []);
             } catch (err) {
                 console.error("Failed to fetch orders:", err);
                 setError("Failed to load orders. Please try again.");
@@ -129,12 +131,15 @@ export default function OrdersPage() {
         }
     }, [user?._id, isAuthenticated]);
 
-    // Get product image
-    const getProductImage = (images?: string[]): string => {
-        if (!images || images.length === 0) return "/placeholder.png";
-        const img = images[0];
+    // Get product image (images can be string[] or single string path)
+    const getProductImage = (images?: string[] | string): string => {
+        if (!images) return "/placeholder.png";
+        const img = Array.isArray(images) ? images[0] : images;
+        if (!img) return "/placeholder.png";
         if (img.startsWith("http")) return img;
-        return `${API_BASE_URL.replace("/api", "")}/uploads/${img}`;
+        const base = API_BASE_URL.replace("/api", "");
+        if (img.startsWith("/")) return base + img;
+        return `${base}/uploads/${img}`;
     };
 
     // Format date
@@ -150,12 +155,15 @@ export default function OrdersPage() {
 
     // Filter orders
     const filteredOrders = orders.filter(order => {
-        const matchesStatus = filterStatus === "all" || order.status === filterStatus;
-        const matchesSearch = searchQuery === "" || 
-            order._id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            order.items.some(item => 
-                item.product?.name?.toLowerCase().includes(searchQuery.toLowerCase())
-            );
+        const matchesStatus = filterStatus === "all" || (order.status && order.status === filterStatus);
+        const itemList = order.items || [];
+        const matchesSearch = searchQuery === "" ||
+            (order._id && order._id.toLowerCase().includes(searchQuery.toLowerCase())) ||
+            itemList.some(item => {
+                const p = item.product;
+                const name = typeof p === "object" && p ? p.name : "";
+                return name && name.toLowerCase().includes(searchQuery.toLowerCase());
+            });
         return matchesStatus && matchesSearch;
     });
 
@@ -286,8 +294,13 @@ export default function OrdersPage() {
                 {!isLoading && !error && filteredOrders.length > 0 && (
                     <div className="space-y-6">
                         {filteredOrders.map((order) => {
-                            const status = statusConfig[order.status] || statusConfig.pending;
+                            const orderStatus = order.status || "pending";
+                            const status = statusConfig[orderStatus] || statusConfig.pending;
                             const StatusIcon = status.icon;
+                            const itemList = order.items || [];
+                            const totalDisplay = order.total ?? order.totalAmount;
+                            const firstProduct = itemList[0]?.product;
+                            const firstProductId = typeof firstProduct === "string" ? firstProduct : (firstProduct as { _id?: string })?._id;
 
                             return (
                                 <div
@@ -302,7 +315,7 @@ export default function OrdersPage() {
                                                 <div>
                                                     <p className="text-xs text-gray-500">Order ID</p>
                                                     <p className="font-semibold text-gray-900 text-sm">
-                                                        #{order._id.slice(-8).toUpperCase()}
+                                                        #{order._id ? String(order._id).slice(-8).toUpperCase() : "—"}
                                                     </p>
                                                 </div>
 
@@ -317,7 +330,7 @@ export default function OrdersPage() {
                                                 {/* Total */}
                                                 <div className="flex items-center gap-1 text-gray-900 font-semibold">
                                                     <IndianRupee className="w-4 h-4" />
-                                                    <span>{order.totalAmount?.toLocaleString("en-IN") || "N/A"}</span>
+                                                    <span>{totalDisplay != null ? Number(totalDisplay).toLocaleString("en-IN") : "N/A"}</span>
                                                 </div>
                                             </div>
 
@@ -332,40 +345,43 @@ export default function OrdersPage() {
                                     {/* Order Items */}
                                     <div className="p-5">
                                         <div className="space-y-4">
-                                            {order.items.slice(0, 3).map((item, idx) => (
-                                                <div key={item._id || idx} className="flex gap-4">
-                                                    {/* Product Image */}
-                                                    <div className="w-20 h-20 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
-                                                        <Image
-                                                            src={getProductImage(item.product?.images)}
-                                                            alt={item.product?.name || "Product"}
-                                                            width={80}
-                                                            height={80}
-                                                            className="w-full h-full object-cover"
-                                                        />
-                                                    </div>
+                                            {itemList.slice(0, 3).map((item, idx) => {
+                                                const product = typeof item.product === "object" ? item.product : null;
+                                                const productName = product?.name ?? "Product";
+                                                const productImages = product?.images ?? undefined;
+                                                return (
+                                                    <div key={item._id || idx} className="flex gap-4">
+                                                        {/* Product Image - use img to avoid Next/Image domain config with API URLs */}
+                                                        <div className="w-20 h-20 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
+                                                            <img
+                                                                src={getProductImage(productImages)}
+                                                                alt={productName}
+                                                                className="w-full h-full object-cover"
+                                                            />
+                                                        </div>
 
-                                                    {/* Product Details */}
-                                                    <div className="flex-1 min-w-0">
-                                                        <h3 className="font-medium text-gray-900 line-clamp-1">
-                                                            {item.product?.name || "Product"}
-                                                        </h3>
-                                                        <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1 text-sm text-gray-600">
-                                                            <span>Qty: {item.quantity}</span>
-                                                            {item.selectedSize && (
-                                                                <span>Size: {item.selectedSize}</span>
-                                                            )}
-                                                            <span className="font-medium text-gray-900">
-                                                                ₹{item.price?.toLocaleString("en-IN")}
-                                                            </span>
+                                                        {/* Product Details */}
+                                                        <div className="flex-1 min-w-0">
+                                                            <h3 className="font-medium text-gray-900 line-clamp-1">
+                                                                {productName}
+                                                            </h3>
+                                                            <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1 text-sm text-gray-600">
+                                                                <span>Qty: {item.quantity}</span>
+                                                                {item.selectedSize && (
+                                                                    <span>Size: {item.selectedSize}</span>
+                                                                )}
+                                                                <span className="font-medium text-gray-900">
+                                                                    ₹{Number(item.price ?? 0).toLocaleString("en-IN")}
+                                                                </span>
+                                                            </div>
                                                         </div>
                                                     </div>
-                                                </div>
-                                            ))}
+                                                );
+                                            })}
 
-                                            {order.items.length > 3 && (
+                                            {itemList.length > 3 && (
                                                 <p className="text-sm text-gray-500">
-                                                    +{order.items.length - 3} more item(s)
+                                                    +{itemList.length - 3} more item(s)
                                                 </p>
                                             )}
                                         </div>
@@ -394,13 +410,13 @@ export default function OrdersPage() {
                                         )}
                                     </div>
 
-                                    {/* Order Footer */}
+                                    {/* Order Footer - View Details goes to first product's page */}
                                     <div className="px-5 py-4 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
                                         <p className="text-sm text-gray-600">
-                                            {order.items.length} item(s) • {order.paymentMethod || "COD"}
+                                            {itemList.length} item(s) • {order.paymentMethod || "COD"}
                                         </p>
                                         <Link
-                                            href={`/orders/${order._id}`}
+                                            href={firstProductId ? `/product/${firstProductId}` : "#"}
                                             className="inline-flex items-center gap-1 text-gray-700 hover:text-gray-900 font-medium text-sm transition-colors"
                                         >
                                             View Details

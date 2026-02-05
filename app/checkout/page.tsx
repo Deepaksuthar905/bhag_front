@@ -12,7 +12,6 @@ import {
     CreditCard,
     Truck,
     Wallet,
-    Building,
     CheckCircle,
     AlertCircle,
     Loader2,
@@ -25,7 +24,7 @@ import {
     Check,
     Trash2,
 } from "lucide-react";
-import { fetchApi, API_ENDPOINTS } from "@/lib/api";
+import { fetchApi, uploadApiFile, API_ENDPOINTS } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { useCart } from "@/context/CartContext";
 import { ApiResponse } from "@/lib/types";
@@ -68,18 +67,22 @@ interface AddressFromAPI {
 const ADDRESSES_CACHE_KEY = "cached_addresses_";
 const ADDRESSES_CACHE_EXPIRY = 5 * 60 * 1000; // 5 minutes
 
-// Payment method type
-type PaymentMethod = "cod" | "upi" | "card" | "netbanking";
+// Payment method type - only COD or QR Scan
+type PaymentMethod = "cod" | "qr";
+
+// UPI ID for QR Scan payments
+const UPI_ID = "8949599717@ptsbi";
+const UPI_PAYEE_NAME = "Deepak Suthar";
 
 export default function CheckoutPage() {
     const router = useRouter();
     const { user, isAuthenticated, isLoading: authLoading } = useAuth();
-    
+
     // Cart state
     const { cartItems, isLoading: cartLoading } = useCart();
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState("");
-    
+
     // Form state
     const [shippingAddress, setShippingAddress] = useState<ShippingAddress>({
         fullName: "",
@@ -92,10 +95,12 @@ export default function CheckoutPage() {
         pincode: "",
         landmark: "",
     });
-    
-    // Payment state
+
+    // Payment state (cod or qr only)
     const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cod");
-    
+    // Payment screenshot when QR Scan is selected (to be sent to API later)
+    const [paymentScreenshot, setPaymentScreenshot] = useState<File | null>(null);
+
     // Order state
     const [isPlacingOrder, setIsPlacingOrder] = useState(false);
     const [orderSuccess, setOrderSuccess] = useState(false);
@@ -167,12 +172,12 @@ export default function CheckoutPage() {
 
             try {
                 setIsLoading(true);
-                
+
 
                 // Check if addresses are already loaded or cached
                 if (!addressesLoaded) {
                     const cachedAddresses = getCachedAddresses(user._id);
-                    
+
                     if (cachedAddresses && cachedAddresses.length > 0) {
                         // Use cached addresses
                         console.log("Using cached addresses");
@@ -186,11 +191,11 @@ export default function CheckoutPage() {
                             const addressResponse = await fetchApi<ApiResponse<AddressFromAPI[]>>(
                                 API_ENDPOINTS.addresses(user._id)
                             );
-                            
+
                             console.log("Address API response:", addressResponse);
-                            
+
                             const apiAddresses = addressResponse.data || [];
-                            
+
                             if (apiAddresses.length > 0) {
                                 // Convert API addresses to our format
                                 const convertedAddresses = apiAddresses.map(convertApiAddress);
@@ -234,7 +239,7 @@ export default function CheckoutPage() {
                         }
                     }
                 }
-                
+
                 // Pre-fill new address form with user info
                 setNewAddress(prev => ({
                     ...prev,
@@ -285,17 +290,17 @@ export default function CheckoutPage() {
             setError("Please enter a valid 6-digit pincode");
             return;
         }
-        
+
         setError("");
         setIsSavingAddress(true);
-        
+
         let updatedAddresses: ShippingAddress[];
-        
+
         try {
             if (editingAddressIndex !== null && newAddress._id) {
                 // Update existing address via API
                 console.log("Updating address:", newAddress._id);
-                
+
                 const updatePayload = {
                     userId: user?._id,
                     name: newAddress.fullName,
@@ -308,7 +313,7 @@ export default function CheckoutPage() {
                     pincode: newAddress.pincode,
                     landmark: newAddress.landmark,
                 };
-                
+
                 await fetchApi(API_ENDPOINTS.updateAddress(newAddress._id), {
                     method: "PUT",
                     headers: {
@@ -316,9 +321,9 @@ export default function CheckoutPage() {
                     },
                     body: JSON.stringify(updatePayload),
                 });
-                
+
                 console.log("Address updated successfully");
-                
+
                 // Update local state
                 updatedAddresses = [...savedAddresses];
                 updatedAddresses[editingAddressIndex] = newAddress;
@@ -326,7 +331,7 @@ export default function CheckoutPage() {
             } else {
                 // Add new address via API
                 console.log("Adding new address");
-                
+
                 const addPayload = {
                     userId: user?._id,
                     name: newAddress.fullName,
@@ -339,7 +344,7 @@ export default function CheckoutPage() {
                     pincode: newAddress.pincode,
                     landmark: newAddress.landmark,
                 };
-                
+
                 const response = await fetchApi<ApiResponse<{ _id: string }>>(API_ENDPOINTS.addAddress, {
                     method: "POST",
                     headers: {
@@ -347,27 +352,27 @@ export default function CheckoutPage() {
                     },
                     body: JSON.stringify(addPayload),
                 });
-                
+
                 console.log("Address added successfully:", response);
-                
+
                 // Add the new address with _id from response
                 const addedAddress: ShippingAddress = {
                     ...newAddress,
                     _id: response.data?._id || (response as any)._id || "",
                 };
-                
+
                 updatedAddresses = [...savedAddresses, addedAddress];
                 setSelectedAddressIndex(updatedAddresses.length - 1);
             }
-            
+
             setSavedAddresses(updatedAddresses);
             setShippingAddress(newAddress);
-            
+
             // Update cache
             if (user?._id) {
                 cacheAddresses(user._id, updatedAddresses);
             }
-            
+
             // Reset form
             setShowAddressForm(false);
             setEditingAddressIndex(null);
@@ -420,10 +425,10 @@ export default function CheckoutPage() {
     // Confirm and delete address
     const handleConfirmDelete = async () => {
         if (showDeleteConfirm === null) return;
-        
+
         const index = showDeleteConfirm;
         const addressToDelete = savedAddresses[index];
-        
+
         if (!addressToDelete._id || !user?._id) {
             // If no _id, just remove locally
             const updatedAddresses = savedAddresses.filter((_, i) => i !== index);
@@ -444,20 +449,20 @@ export default function CheckoutPage() {
         }
 
         setIsDeletingAddress(index);
-        
+
         try {
             console.log("Deleting address:", addressToDelete._id);
-            
+
             await fetchApi(API_ENDPOINTS.deleteAddress(addressToDelete._id, user._id), {
                 method: "DELETE",
             });
-            
+
             console.log("Address deleted successfully");
-            
+
             // Update local state
             const updatedAddresses = savedAddresses.filter((_, i) => i !== index);
             setSavedAddresses(updatedAddresses);
-            
+
             // Update selected index if needed
             if (selectedAddressIndex === index) {
                 setSelectedAddressIndex(0);
@@ -467,10 +472,10 @@ export default function CheckoutPage() {
             } else if (selectedAddressIndex > index) {
                 setSelectedAddressIndex(selectedAddressIndex - 1);
             }
-            
+
             // Update cache
             cacheAddresses(user._id, updatedAddresses);
-            
+
         } catch (err) {
             console.error("Failed to delete address:", err);
             setError("Failed to delete address. Please try again.");
@@ -538,38 +543,85 @@ export default function CheckoutPage() {
         return true;
     };
 
-    // Place order
+    // Place order: upload screenshot if QR, then create order
     const handlePlaceOrder = async () => {
         setError("");
-        
+
         if (!validateForm()) return;
-        
+
+        if (paymentMethod === "qr" && !paymentScreenshot) {
+            setError("Please upload your payment screenshot before placing the order.");
+            return;
+        }
+
+        if (!user?._id) {
+            setError("Please log in to place order.");
+            return;
+        }
+
         setIsPlacingOrder(true);
-        
+
         try {
-            // TODO: Call your order API here
-            // const response = await fetchApi("/orders", {
-            //     method: "POST",
-            //     body: JSON.stringify({
-            //         userId: user?._id,
-            //         items: cartItems,
-            //         shippingAddress,
-            //         paymentMethod,
-            //         total,
-            //     }),
-            // });
-            
-            // Simulate order placement
-            await new Promise(resolve => setTimeout(resolve, 2000));
-            
-            // Generate fake order ID for demo
-            const fakeOrderId = "ORD" + Date.now().toString().slice(-8);
-            setOrderId(fakeOrderId);
+            let screenshotUrl: string | null = null;
+
+            // If QR: upload screenshot first via orders/upload-screenshot
+            if (paymentMethod === "qr" && paymentScreenshot) {
+                const formData = new FormData();
+                // Backend often expects "file" as field name for file upload
+                formData.append("file", paymentScreenshot);
+                const uploadRes = await uploadApiFile<{ success?: boolean; screenshotUrl?: string }>(
+                    API_ENDPOINTS.uploadScreenshot,
+                    formData
+                );
+                const raw = uploadRes as any;
+                // Upload returns { success, message, screenshotUrl }
+                screenshotUrl = raw?.screenshotUrl ?? null;
+                if (!raw?.success || !screenshotUrl) {
+                    setError("Could not upload payment screenshot. Please try again.");
+                    setIsPlacingOrder(false);
+                    return;
+                }
+            }
+
+            // Build order items for API: { product, quantity, price }
+            const orderItems = cartItems.map((item) => ({
+                product: item.product?._id,
+                quantity: item.quantity,
+                price: item.product?.price ?? 0,
+            }));
+
+            // Create order via orders/create - payload matches backend expectation
+            const createPayload = {
+                user: user._id,
+                items: orderItems,
+                total,
+                paymentMethod: paymentMethod === "qr" ? "qr" : "cod",
+                paymentScreenshot: paymentMethod === "qr" ? screenshotUrl : null,
+                shippingAddress: {
+                    fullName: shippingAddress.fullName,
+                    phone: shippingAddress.phone,
+                    email: shippingAddress.email,
+                    addressLine1: shippingAddress.addressLine1,
+                    addressLine2: shippingAddress.addressLine2 || undefined,
+                    city: shippingAddress.city,
+                    state: shippingAddress.state,
+                    pincode: shippingAddress.pincode,
+                    landmark: shippingAddress.landmark || undefined,
+                },
+            };
+
+            const orderRes = await fetchApi<{ _id?: string; data?: { _id?: string } }>(API_ENDPOINTS.orderCreate, {
+                method: "POST",
+                body: JSON.stringify(createPayload),
+            });
+
+            const orderData = orderRes as any;
+            const createdOrderId = orderData?._id ?? orderData?.data?._id ?? "ORD" + Date.now().toString().slice(-8);
+            setOrderId(createdOrderId);
             setOrderSuccess(true);
-            
         } catch (err) {
             console.error("Order failed:", err);
-            setError("Failed to place order. Please try again.");
+            setError(err instanceof Error ? err.message : "Failed to place order. Please try again.");
         } finally {
             setIsPlacingOrder(false);
         }
@@ -726,19 +778,17 @@ export default function CheckoutPage() {
                                         <div
                                             key={index}
                                             onClick={() => handleSelectAddress(index)}
-                                            className={`p-4 border-2 rounded-xl cursor-pointer transition-all ${
-                                                selectedAddressIndex === index
+                                            className={`p-4 border-2 rounded-xl cursor-pointer transition-all ${selectedAddressIndex === index
                                                     ? "border-gray-700 bg-gray-50"
                                                     : "border-gray-200 hover:border-gray-300"
-                                            }`}
+                                                }`}
                                         >
                                             <div className="flex items-start justify-between">
                                                 <div className="flex items-start gap-3">
-                                                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center mt-0.5 ${
-                                                        selectedAddressIndex === index
+                                                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center mt-0.5 ${selectedAddressIndex === index
                                                             ? "border-gray-700 bg-gray-700"
                                                             : "border-gray-300"
-                                                    }`}>
+                                                        }`}>
                                                         {selectedAddressIndex === index && (
                                                             <Check className="w-3 h-3 text-white" />
                                                         )}
@@ -1008,7 +1058,7 @@ export default function CheckoutPage() {
                             )}
                         </div>
 
-                        {/* Payment Method */}
+                        {/* Payment Method - only COD or QR Scan */}
                         <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6">
                             <div className="flex items-center gap-3 mb-6">
                                 <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
@@ -1022,11 +1072,10 @@ export default function CheckoutPage() {
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 {/* COD */}
                                 <label
-                                    className={`flex items-center gap-4 p-4 border-2 rounded-xl cursor-pointer transition-all ${
-                                        paymentMethod === "cod"
+                                    className={`flex items-center gap-4 p-4 border-2 rounded-xl cursor-pointer transition-all ${paymentMethod === "cod"
                                             ? "border-gray-700 bg-gray-50"
                                             : "border-gray-200 hover:border-gray-300"
-                                    }`}
+                                        }`}
                                 >
                                     <input
                                         type="radio"
@@ -1043,75 +1092,104 @@ export default function CheckoutPage() {
                                     </div>
                                 </label>
 
-                                {/* UPI */}
+                                {/* QR Scan (UPI) */}
                                 <label
-                                    className={`flex items-center gap-4 p-4 border-2 rounded-xl cursor-pointer transition-all ${
-                                        paymentMethod === "upi"
+                                    className={`flex items-center gap-4 p-4 border-2 rounded-xl cursor-pointer transition-all ${paymentMethod === "qr"
                                             ? "border-gray-700 bg-gray-50"
                                             : "border-gray-200 hover:border-gray-300"
-                                    }`}
+                                        }`}
                                 >
                                     <input
                                         type="radio"
                                         name="paymentMethod"
-                                        value="upi"
-                                        checked={paymentMethod === "upi"}
-                                        onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
+                                        value="qr"
+                                        checked={paymentMethod === "qr"}
+                                        onChange={(e) => {
+                                            setPaymentMethod(e.target.value as PaymentMethod);
+                                            if (e.target.value !== "qr") setPaymentScreenshot(null);
+                                        }}
                                         className="w-5 h-5 text-gray-700"
                                     />
                                     <Wallet className="w-6 h-6 text-gray-600" />
                                     <div>
-                                        <p className="font-semibold text-gray-900">UPI</p>
-                                        <p className="text-sm text-gray-500">GPay, PhonePe, Paytm</p>
-                                    </div>
-                                </label>
-
-                                {/* Card */}
-                                <label
-                                    className={`flex items-center gap-4 p-4 border-2 rounded-xl cursor-pointer transition-all ${
-                                        paymentMethod === "card"
-                                            ? "border-gray-700 bg-gray-50"
-                                            : "border-gray-200 hover:border-gray-300"
-                                    }`}
-                                >
-                                    <input
-                                        type="radio"
-                                        name="paymentMethod"
-                                        value="card"
-                                        checked={paymentMethod === "card"}
-                                        onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
-                                        className="w-5 h-5 text-gray-700"
-                                    />
-                                    <CreditCard className="w-6 h-6 text-gray-600" />
-                                    <div>
-                                        <p className="font-semibold text-gray-900">Credit/Debit Card</p>
-                                        <p className="text-sm text-gray-500">Visa, Mastercard, RuPay</p>
-                                    </div>
-                                </label>
-
-                                {/* Net Banking */}
-                                <label
-                                    className={`flex items-center gap-4 p-4 border-2 rounded-xl cursor-pointer transition-all ${
-                                        paymentMethod === "netbanking"
-                                            ? "border-gray-700 bg-gray-50"
-                                            : "border-gray-200 hover:border-gray-300"
-                                    }`}
-                                >
-                                    <input
-                                        type="radio"
-                                        name="paymentMethod"
-                                        value="netbanking"
-                                        checked={paymentMethod === "netbanking"}
-                                        onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
-                                        className="w-5 h-5 text-gray-700"
-                                    />
-                                    <Building className="w-6 h-6 text-gray-600" />
-                                    <div>
-                                        <p className="font-semibold text-gray-900">Net Banking</p>
-                                        <p className="text-sm text-gray-500">All major banks</p>
+                                        <p className="font-semibold text-gray-900">QR Scan</p>
+                                        <p className="text-sm text-gray-500">Scan with UPI app to pay</p>
                                     </div>
                                 </label>
                             </div>
+
+                            {/* UPI QR code - show when QR Scan is selected */}
+                            {paymentMethod === "qr" && (
+                                <div className="mt-6 p-6 bg-gray-50 rounded-xl border border-gray-200">
+                                    <p className="text-sm font-semibold text-gray-700 mb-3">Scan to pay with any UPI app</p>
+                                    {/* <p className="text-xs text-gray-600 mb-4">GPay, PhonePe, Paytm, or any UPI app — amount will be pre-filled.</p> */}
+                                    <div className="flex flex-col sm:flex-row items-center gap-6">
+                                        <div className="flex-shrink-0 p-4 bg-white rounded-xl shadow-inner">
+                                            <img
+                                                src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(
+                                                    `upi://pay?pa=${UPI_ID}&pn=${encodeURIComponent(UPI_PAYEE_NAME)}&am=${total.toFixed(2)}&cu=INR`
+                                                )}`}
+                                                alt="UPI Payment QR Code"
+                                                className="w-[200px] h-[200px] rounded-lg"
+                                                width={200}
+                                                height={200}
+                                            />
+                                        </div>
+                                        <div className="text-center sm:text-left space-y-2">
+                                            <p className="text-sm text-gray-600">
+                                                <span className="font-medium text-gray-700">UPI ID:</span> {UPI_ID}
+                                            </p>
+                                            <p className="text-lg font-bold text-gray-900">
+                                                Amount: {formatPrice(total)}
+                                            </p>
+                                            <p className="text-xs text-gray-500">
+                                                Scan the QR from any UPI app; the amount will be filled automatically.
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    {/* Payment screenshot upload - file picker */}
+                                    <div className="mt-6 pt-6 border-t border-gray-200">
+                                        <p className="text-sm font-semibold text-gray-700 mb-2">
+                                            Upload payment screenshot <span className="text-red-600">*</span>
+                                        </p>
+                                        <p className="text-xs text-gray-600 mb-3">
+                                            After paying via UPI, upload a screenshot of the payment success screen. This is <strong>required</strong> to complete your order.
+                                        </p>
+                                        <label className="flex flex-col sm:flex-row sm:items-center gap-3 cursor-pointer">
+                                            <span className="inline-flex items-center justify-center gap-2 px-4 py-3 bg-gray-800 text-white text-sm font-medium rounded-lg hover:bg-gray-900 transition-colors">
+                                                <CreditCard className="w-4 h-4" />
+                                                Choose screenshot
+                                            </span>
+                                            <input
+                                                type="file"
+                                                accept="image/*"
+                                                capture="environment"
+                                                className="hidden"
+                                                onChange={(e) => {
+                                                    const file = e.target.files?.[0];
+                                                    setPaymentScreenshot(file || null);
+                                                }}
+                                            />
+                                            {paymentScreenshot && (
+                                                <span className="text-sm text-gray-600">
+                                                    {paymentScreenshot.name}
+                                                    <button
+                                                        type="button"
+                                                        onClick={(e) => {
+                                                            e.preventDefault();
+                                                            setPaymentScreenshot(null);
+                                                        }}
+                                                        className="ml-2 text-red-600 hover:text-red-700 text-xs font-medium"
+                                                    >
+                                                        Remove
+                                                    </button>
+                                                </span>
+                                            )}
+                                        </label>
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         {/* Order Items */}
@@ -1238,20 +1316,20 @@ export default function CheckoutPage() {
                         <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
                             <Trash2 className="w-8 h-8 text-red-600" />
                         </div>
-                        
+
                         {/* Title */}
                         <h3 className="text-xl font-bold text-gray-900 text-center mb-2">
                             Delete Address?
                         </h3>
-                        
+
                         {/* Description */}
                         <p className="text-gray-600 text-center mb-6">
                             Are you sure you want to delete this address?
                         </p>
-                        
+
                         {/* Address Preview */}
-                        
-                        
+
+
                         {/* Buttons */}
                         <div className="flex gap-3">
                             <button

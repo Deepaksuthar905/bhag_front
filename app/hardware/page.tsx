@@ -1,49 +1,87 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { Heart } from "lucide-react";
 import { fetchApi, API_ENDPOINTS } from "@/lib/api";
 import { Product, ApiResponse } from "@/lib/types";
 import { useWishlist } from "@/context/WishlistContext";
 import { useAuth } from "@/context/AuthContext";
 
+const HARDWARE_CATEGORY_ID = "693c4aa7013df282aa0ede1a";
+
+interface Subcategory {
+    _id: string;
+    name: string;
+    slug?: string;
+}
+
 export default function HardwarePage() {
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const subcategoryId = searchParams.get("subcategory");
     const [products, setProducts] = useState<Product[]>([]);
+    const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [loadedImages, setLoadedImages] = useState<Set<string>>(new Set());
     const [togglingWishlistId, setTogglingWishlistId] = useState<string | null>(null);
     const { isInWishlist, addToWishlist, removeFromWishlist } = useWishlist();
     const { isAuthenticated } = useAuth();
 
+    // Fetch subcategories for hardware
+    useEffect(() => {
+        const fetchSubcategories = async () => {
+            try {
+                const res = await fetchApi<any>(API_ENDPOINTS.subcategoriesByCategory(HARDWARE_CATEGORY_ID));
+                const raw = res as any;
+                const list = Array.isArray(raw?.data) ? raw.data
+                    : Array.isArray(raw?.subcategories) ? raw.subcategories
+                    : Array.isArray(raw) ? raw : [];
+                setSubcategories(list);
+            } catch (err) {
+                console.error("Failed to fetch subcategories", err);
+            }
+        };
+        fetchSubcategories();
+    }, []);
+
+    // Fetch products: by subcategory (GET /subcategory/:id) when subcategory selected, else by category
     useEffect(() => {
         const fetchProducts = async () => {
             try {
                 setIsLoading(true);
-                // Hardware category ID: 693c4aa7013df282aa0ede1a
-                const response = await fetchApi<ApiResponse<Product[]>>(API_ENDPOINTS.productsByCategory("693c4aa7013df282aa0ede1a"));
-                
-                // Handle different response structures
                 let productsData: Product[] = [];
-                if (Array.isArray(response.data)) {
-                    productsData = response.data;
-                } else if (response.data && Array.isArray(response.data)) {
-                    productsData = response.data;
-                } else if (Array.isArray(response)) {
-                    productsData = response;
+
+                if (subcategoryId) {
+                    // Fetch list for this category + subcategory via GET /subcategory/:id
+                    const response = await fetchApi<any>(API_ENDPOINTS.subcategoryById(subcategoryId));
+                    const raw = response as any;
+                    productsData = Array.isArray(raw?.data?.products) ? raw.data.products
+                        : Array.isArray(raw?.products) ? raw.products
+                        : Array.isArray(raw?.data) ? raw.data
+                        : Array.isArray(raw) ? raw : [];
+                } else {
+                    // Fetch all hardware products by category
+                    const response = await fetchApi<ApiResponse<Product[]>>(API_ENDPOINTS.productsByCategory(HARDWARE_CATEGORY_ID));
+                    if (Array.isArray((response as any).data)) {
+                        productsData = (response as any).data;
+                    } else if (Array.isArray(response)) {
+                        productsData = response as unknown as Product[];
+                    }
                 }
-                
+
                 setProducts(productsData);
             } catch (error) {
                 console.error("Failed to fetch products", error);
+                setProducts([]);
             } finally {
                 setIsLoading(false);
             }
         };
 
         fetchProducts();
-    }, []);
+    }, [subcategoryId]);
 
     const handleProductClick = (productId: string) => {
         router.push(`/product/${productId}`);
@@ -110,6 +148,37 @@ export default function HardwarePage() {
                         </div>
                     </div>
                 </div>
+
+                {/* Subcategories in a horizontal line */}
+                {subcategories.length > 0 && (
+                    <div className="mb-8 animate-fadeInUp">
+                        <div className="flex flex-wrap justify-center gap-2 sm:gap-3 overflow-x-auto pb-2 scrollbar-thin">
+                            <Link
+                                href="/hardware"
+                                className={`flex-shrink-0 px-4 py-2 rounded-full border text-sm font-medium transition-colors shadow-sm ${
+                                    !subcategoryId
+                                        ? "bg-gray-800 text-white border-gray-800"
+                                        : "bg-white border-gray-200 text-gray-700 hover:bg-gray-800 hover:text-white hover:border-gray-800"
+                                }`}
+                            >
+                                All
+                            </Link>
+                            {subcategories.map((sub) => (
+                                <Link
+                                    key={sub._id}
+                                    href={`/hardware?subcategory=${encodeURIComponent(sub._id)}`}
+                                    className={`flex-shrink-0 px-4 py-2 rounded-full border text-sm font-medium transition-colors shadow-sm ${
+                                        subcategoryId === sub._id
+                                            ? "bg-gray-800 text-white border-gray-800"
+                                            : "bg-white border-gray-200 text-gray-700 hover:bg-gray-800 hover:text-white hover:border-gray-800"
+                                    }`}
+                                >
+                                    {sub.name}
+                                </Link>
+                            ))}
+                        </div>
+                    </div>
+                )}
 
                 {/* Products Grid with Staggered Animation */}
                 {isLoading ? (
