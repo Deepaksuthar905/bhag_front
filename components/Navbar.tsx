@@ -159,14 +159,15 @@ export default function Navbar() {
         >
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex justify-between items-center">
-                    <div
-                        className={`text-2xl md:text-3xl tracking-wide font-extrabold md:font-bold ${searchOpen ? "hidden md:block" : ""}`}
+                    <Link
+                        href="/"
+                        className={`text-2xl md:text-3xl tracking-wide font-extrabold md:font-bold ${searchOpen ? "hidden md:block" : ""} block`}
                         style={{ fontFamily: "var(--font-great-vibes)" }}
                     >
                         <span className={textColor}>
                             Bhagwati
                         </span>
-                    </div>
+                    </Link>
 
                     {/* Desktop Menu with subcategory dropdown on hover */}
                     <div className="hidden md:flex items-center space-x-8">

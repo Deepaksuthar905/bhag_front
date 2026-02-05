@@ -217,7 +217,7 @@ export default function HomePage() {
             </h2>
             <p className="text-gray-600">Handpicked items just for you</p>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-8">
             {featuredProducts.length === 0 ? (
               <div className="col-span-full text-center py-12">
                 <p className="text-gray-500">No featured products available</p>
