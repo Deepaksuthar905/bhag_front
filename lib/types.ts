@@ -11,9 +11,10 @@ export interface Product {
         name: string;
     } | null;
     sizes?: {
-        _id: string;
+        _id?: string;
         label?: string;
         value?: string;
+        name?: string;
     }[];
     material?: string;
     brand?: string;

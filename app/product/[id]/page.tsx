@@ -46,9 +46,10 @@ export default function ProductDetailPage() {
                 setIsLoading(true);
                 const response = await fetchApi<ApiResponse<Product>>(`/product/${params.id}`);
                 setProduct(response.data);
-                // Set default size if available
+                // Set default size if available (API may send value, label, or name)
                 if (response.data.sizes && response.data.sizes.length > 0) {
-                    setSelectedSize(response.data.sizes[0].value || response.data.sizes[0].label || "");
+                    const first = response.data.sizes[0] as { value?: string; label?: string; name?: string };
+                    setSelectedSize(first.value || first.label || first.name || "");
                 }
             } catch (error) {
                 console.error("Failed to fetch product", error);
@@ -312,18 +313,19 @@ export default function ProductDetailPage() {
                             )}
                         </div>
 
-                        {/* Size Selection */}
+                        {/* Size Selection - API sends sizes as [{ name: "1" }, { name: "2" }, ...] */}
                         {product.sizes && product.sizes.length > 0 && (
                             <div>
                                 <label className="block text-sm font-semibold text-gray-700 mb-3">
                                     Select Size
                                 </label>
                                 <div className="flex flex-wrap gap-3">
-                                    {product.sizes.map((size) => {
-                                        const sizeValue = size.value || size.label || "";
+                                    {product.sizes.map((size: { _id?: string; value?: string; label?: string; name?: string }, idx: number) => {
+                                        const sizeValue = size.value || size.label || size.name || "";
+                                        const displayName = size.name || size.label || size.value || sizeValue;
                                         return (
                                             <button
-                                                key={size._id}
+                                                key={size._id ?? `size-${idx}`}
                                                 onClick={() => setSelectedSize(sizeValue)}
                                                 className={`px-4 py-2 rounded-lg border-2 font-medium transition-all ${
                                                     selectedSize === sizeValue
@@ -331,7 +333,7 @@ export default function ProductDetailPage() {
                                                         : "border-gray-300 text-gray-700 hover:border-gray-500"
                                                 }`}
                                             >
-                                                {size.label || size.value}
+                                                {displayName}
                                             </button>
                                         );
                                     })}
