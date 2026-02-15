@@ -1,13 +1,13 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Mail, Lock, KeyRound, Eye, EyeOff, AlertCircle, CheckCircle, ArrowLeft } from "lucide-react";
 
 const RESET_PASSWORD_API = "http://localhost:3000/api/reset-password";
 
-export default function ResetPasswordPage() {
+function ResetPasswordContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const [email, setEmail] = useState("");
@@ -238,5 +238,24 @@ export default function ResetPasswordPage() {
                 }
             `}</style>
         </div>
+    );
+}
+
+function ResetPasswordFallback() {
+    return (
+        <div className="min-h-screen pt-24 pb-12 px-4 bg-gray-50 flex items-center justify-center">
+            <div className="text-center">
+                <div className="w-12 h-12 border-4 border-gray-300 border-t-gray-700 rounded-full animate-spin mx-auto mb-4" />
+                <p className="text-gray-600">Loading...</p>
+            </div>
+        </div>
+    );
+}
+
+export default function ResetPasswordPage() {
+    return (
+        <Suspense fallback={<ResetPasswordFallback />}>
+            <ResetPasswordContent />
+        </Suspense>
     );
 }
