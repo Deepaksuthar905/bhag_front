@@ -29,16 +29,15 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
         }
 
         try {
-            const response = await fetchApi<any>(API_ENDPOINTS.wishlist(user._id));
-            
+            const response = await fetchApi<unknown>(API_ENDPOINTS.wishlist(user._id));
+            const raw = response as { data?: unknown[] | { products?: unknown[] }; products?: unknown[] };
             let products: any[] = [];
-            
-            if (response.data?.products && Array.isArray(response.data.products)) {
-                products = response.data.products;
-            } else if (Array.isArray(response.data)) {
-                products = response.data;
-            } else if (response.products && Array.isArray(response.products)) {
-                products = response.products;
+            if (raw?.data && typeof raw.data === "object" && !Array.isArray(raw.data) && Array.isArray((raw.data as { products?: unknown[] }).products)) {
+                products = (raw.data as { products: any[] }).products;
+            } else if (Array.isArray(raw?.data)) {
+                products = raw.data as any[];
+            } else if (Array.isArray(raw?.products)) {
+                products = raw.products as any[];
             }
             
             const productIds = products.map((p: any) => p._id);

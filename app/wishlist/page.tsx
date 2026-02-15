@@ -90,27 +90,18 @@ export default function WishlistPage() {
             setError("");
             
             try {
-                const response = await fetchApi<any>(
-                    API_ENDPOINTS.wishlist(user._id)
-                );
-                
+                const response = await fetchApi<unknown>(API_ENDPOINTS.wishlist(user._id));
+                const raw = response as { data?: unknown[] | { products?: unknown[] }; products?: unknown[] };
                 console.log("Wishlist API response:", response);
-                
-                // Handle the response structure: { message, data: { products: [...], user, _id } }
                 let products: any[] = [];
-                
-                if (response.data?.products && Array.isArray(response.data.products)) {
-                    // Structure: { data: { products: [...] } }
-                    products = response.data.products;
-                } else if (Array.isArray(response.data)) {
-                    // Structure: { data: [...] }
-                    products = response.data;
-                } else if (response.products && Array.isArray(response.products)) {
-                    // Structure: { products: [...] }
-                    products = response.products;
-                } else if (Array.isArray(response)) {
-                    // Structure: [...]
-                    products = response;
+                if (raw?.data && typeof raw.data === "object" && !Array.isArray(raw.data) && Array.isArray((raw.data as { products?: unknown[] }).products)) {
+                    products = (raw.data as { products: any[] }).products;
+                } else if (Array.isArray(raw?.data)) {
+                    products = raw.data as any[];
+                } else if (Array.isArray(raw?.products)) {
+                    products = raw.products as any[];
+                } else if (Array.isArray(raw)) {
+                    products = raw as any[];
                 }
                 
                 console.log("Parsed wishlist products:", products);
