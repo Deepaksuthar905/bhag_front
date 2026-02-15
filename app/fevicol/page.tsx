@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Heart } from "lucide-react";
 import { fetchApi, API_ENDPOINTS } from "@/lib/api";
-import { Product, ApiResponse } from "@/lib/types";
+import { Product } from "@/lib/types";
 import { useWishlist } from "@/context/WishlistContext";
 import { useAuth } from "@/context/AuthContext";
 
@@ -22,16 +22,18 @@ export default function FevicolPage() {
             try {
                 setIsLoading(true);
                 // Fevicol category ID: 697356269f94fbaf3dfa0e84
-                const response = await fetchApi<ApiResponse<Product[]>>(API_ENDPOINTS.productsByCategory("697356269f94fbaf3dfa0e84"));
-                
+                const response = await fetchApi<unknown>(API_ENDPOINTS.productsByCategory("697356269f94fbaf3dfa0e84"));
+                const raw = response as { data?: Product[] | { products?: Product[] }; products?: Product[] };
                 // Handle different response structures
                 let productsData: Product[] = [];
-                if (Array.isArray(response.data)) {
-                    productsData = response.data;
-                } else if (response.data?.products && Array.isArray(response.data.products)) {
-                    productsData = response.data.products;
-                } else if (Array.isArray(response)) {
-                    productsData = response;
+                if (Array.isArray(raw?.data)) {
+                    productsData = raw.data;
+                } else if (raw?.data && typeof raw.data === "object" && Array.isArray((raw.data as { products?: Product[] }).products)) {
+                    productsData = (raw.data as { products: Product[] }).products;
+                } else if (Array.isArray(raw?.products)) {
+                    productsData = raw.products;
+                } else if (Array.isArray(raw)) {
+                    productsData = raw as Product[];
                 }
                 
                 setProducts(productsData);
