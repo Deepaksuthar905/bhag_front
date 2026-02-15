@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Heart } from "lucide-react";
@@ -17,7 +17,7 @@ interface Subcategory {
     slug?: string;
 }
 
-export default function HardwarePage() {
+function HardwarePageContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const subcategoryId = searchParams.get("subcategory");
@@ -439,5 +439,24 @@ export default function HardwarePage() {
                 }
             `}</style>
         </div>
+    );
+}
+
+function HardwarePageFallback() {
+    return (
+        <div className="min-h-screen pt-24 pb-12 px-4 bg-gray-50 flex items-center justify-center">
+            <div className="text-center">
+                <div className="w-12 h-12 border-4 border-gray-300 border-t-gray-700 rounded-full animate-spin mx-auto mb-4" />
+                <p className="text-gray-600">Loading...</p>
+            </div>
+        </div>
+    );
+}
+
+export default function HardwarePage() {
+    return (
+        <Suspense fallback={<HardwarePageFallback />}>
+            <HardwarePageContent />
+        </Suspense>
     );
 }
