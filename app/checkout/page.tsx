@@ -583,11 +583,12 @@ export default function CheckoutPage() {
                 }
             }
 
-            // Build order items for API: { product, quantity, price }
+            // Build order items for API: { product, quantity, price, size } - size from cart's selectedSize
             const orderItems = cartItems.map((item) => ({
                 product: item.product?._id,
                 quantity: item.quantity,
                 price: item.product?.price ?? 0,
+                size: item.selectedSize ?? undefined,
             }));
 
             // Create order via orders/create - payload matches backend expectation

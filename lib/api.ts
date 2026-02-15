@@ -1,6 +1,6 @@
 // API Configuration
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api";
-export const AUTH_BASE_URL = process.env.NEXT_PUBLIC_AUTH_URL || "http://localhost:3000";
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://backend-jc8p.onrender.com/api";
+export const AUTH_BASE_URL = process.env.NEXT_PUBLIC_AUTH_URL || "https://backend-jc8p.onrender.com";
 
 // API Endpoints
 export const API_ENDPOINTS = {
