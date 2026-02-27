@@ -21,8 +21,8 @@ export default function PlywoodPage() {
         const fetchProducts = async () => {
             try {
                 setIsLoading(true);
-                // Plywood category ID: 693c4ae6013df282aa0ede1c
-                const response = await fetchApi<unknown>(API_ENDPOINTS.productsByCategory("693c4ae6013df282aa0ede1c"));
+                // Plywood category ID: 69a1f27ac92e1e7aca7f27e9
+                const response = await fetchApi<unknown>(API_ENDPOINTS.productsByCategory("69a1f27ac92e1e7aca7f27e9"));
                 const raw = response as { data?: Product[] | { products?: Product[] }; products?: Product[] };
                 let productsData: Product[] = [];
                 if (Array.isArray(raw?.data)) {

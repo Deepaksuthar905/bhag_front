@@ -21,8 +21,8 @@ export default function HandicraftPage() {
         const fetchProducts = async () => {
             try {
                 setIsLoading(true);
-                // Handicraft category ID: 693c4b17013df282aa0ede20
-                const response = await fetchApi<unknown>(API_ENDPOINTS.productsByCategory("693c4b17013df282aa0ede20"));
+                // Handicraft category ID: 69a1f2a0c92e1e7aca7f2801
+                const response = await fetchApi<unknown>(API_ENDPOINTS.productsByCategory("69a1f2a0c92e1e7aca7f2801"));
                 const raw = response as { data?: Product[] | { products?: Product[] }; products?: Product[] };
                 let productsData: Product[] = [];
                 if (Array.isArray(raw?.data)) {

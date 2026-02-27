@@ -63,8 +63,19 @@ export async function fetchApi<T>(endpoint: string, options?: RequestInit): Prom
     });
 
     if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `API Error: ${response.status} ${response.statusText}`);
+        const errorData = await response.json().catch(() => ({})) as Record<string, unknown>;
+        const message =
+            typeof errorData?.message === "string" ? errorData.message
+            : typeof errorData?.error === "string" ? errorData.error
+            : typeof errorData?.msg === "string" ? errorData.msg
+            : typeof errorData?.errorMessage === "string" ? errorData.errorMessage
+            : null;
+        const errMsg = message || `API Error: ${response.status} ${response.statusText}`;
+        // When API returns "products not found" / "no products for category", treat as empty list so UI shows empty state instead of error
+        if (response.status === 404 && message && /products?\s*not\s*found|no\s*products|not\s*found\s*for\s*this\s*category/i.test(message)) {
+            return [] as T;
+        }
+        throw new Error(errMsg);
     }
 
     return response.json();
@@ -80,8 +91,14 @@ export async function uploadApiFile<T>(endpoint: string, formData: FormData): Pr
     });
 
     if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `API Error: ${response.status} ${response.statusText}`);
+        const errorData = await response.json().catch(() => ({})) as Record<string, unknown>;
+        const message =
+            typeof errorData?.message === "string" ? errorData.message
+            : typeof errorData?.error === "string" ? errorData.error
+            : typeof errorData?.msg === "string" ? errorData.msg
+            : typeof errorData?.errorMessage === "string" ? errorData.errorMessage
+            : null;
+        throw new Error(message || `API Error: ${response.status} ${response.statusText}`);
     }
 
     return response.json();
@@ -102,8 +119,14 @@ export async function fetchAuth<T>(endpoint: string, options?: RequestInit): Pro
     });
 
     if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `Auth Error: ${response.status} ${response.statusText}`);
+        const errorData = await response.json().catch(() => ({})) as Record<string, unknown>;
+        const message =
+            typeof errorData?.message === "string" ? errorData.message
+            : typeof errorData?.error === "string" ? errorData.error
+            : typeof errorData?.msg === "string" ? errorData.msg
+            : typeof errorData?.errorMessage === "string" ? errorData.errorMessage
+            : null;
+        throw new Error(message || `Auth Error: ${response.status} ${response.statusText}`);
     }
 
     return response.json();

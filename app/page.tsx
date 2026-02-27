@@ -92,8 +92,8 @@ export default function HomePage() {
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        // Handicraft category ID: 693c4b17013df282aa0ede20
-        const response = await fetchApi<ApiResponse<Product[]>>(API_ENDPOINTS.productsByCategory("693c4b17013df282aa0ede20"));
+        // Handicraft category ID: 69a1f2a0c92e1e7aca7f2801
+        const response = await fetchApi<ApiResponse<Product[]>>(API_ENDPOINTS.productsByCategory("69a1f2a0c92e1e7aca7f2801"));
         
         // Handle different response structures
         let productsData: Product[] = [];

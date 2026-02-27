@@ -5,11 +5,11 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Heart } from "lucide-react";
 import { fetchApi, API_ENDPOINTS } from "@/lib/api";
-import { Product, ApiResponse } from "@/lib/types";
+import { Product } from "@/lib/types";
 import { useWishlist } from "@/context/WishlistContext";
 import { useAuth } from "@/context/AuthContext";
 
-const HARDWARE_CATEGORY_ID = "693c4aa7013df282aa0ede1a";
+const HARDWARE_CATEGORY_ID = "69a1f10dc92e1e7aca7f27be";
 
 interface Subcategory {
     _id: string;
@@ -62,12 +62,17 @@ function HardwarePageContent() {
                         : Array.isArray(raw?.data) ? raw.data
                         : Array.isArray(raw) ? raw : [];
                 } else {
-                    // Fetch all hardware products by category
-                    const response = await fetchApi<ApiResponse<Product[]>>(API_ENDPOINTS.productsByCategory(HARDWARE_CATEGORY_ID));
-                    if (Array.isArray((response as any).data)) {
-                        productsData = (response as any).data;
-                    } else if (Array.isArray(response)) {
-                        productsData = response as unknown as Product[];
+                    // Fetch all hardware products by category - handle multiple response shapes
+                    const response = await fetchApi<unknown>(API_ENDPOINTS.productsByCategory(HARDWARE_CATEGORY_ID));
+                    const raw = response as { data?: Product[] | { products?: Product[] }; products?: Product[] };
+                    if (Array.isArray(raw?.data)) {
+                        productsData = raw.data;
+                    } else if (raw?.data && typeof raw.data === "object" && Array.isArray((raw.data as { products?: Product[] }).products)) {
+                        productsData = (raw.data as { products: Product[] }).products;
+                    } else if (Array.isArray(raw?.products)) {
+                        productsData = raw.products;
+                    } else if (Array.isArray(raw)) {
+                        productsData = raw as Product[];
                     }
                 }
 

@@ -21,8 +21,8 @@ export default function FevicolPage() {
         const fetchProducts = async () => {
             try {
                 setIsLoading(true);
-                // Fevicol category ID: 697356269f94fbaf3dfa0e84
-                const response = await fetchApi<unknown>(API_ENDPOINTS.productsByCategory("697356269f94fbaf3dfa0e84"));
+                // Fevicol category ID: 69a1f28ec92e1e7aca7f27f5
+                const response = await fetchApi<unknown>(API_ENDPOINTS.productsByCategory("69a1f28ec92e1e7aca7f27f5"));
                 const raw = response as { data?: Product[] | { products?: Product[] }; products?: Product[] };
                 // Handle different response structures
                 let productsData: Product[] = [];

@@ -21,8 +21,8 @@ export default function FurniturePage() {
         const fetchProducts = async () => {
             try {
                 setIsLoading(true);
-                // Furniture category ID: 697356199f94fbaf3dfa0e82
-                const response = await fetchApi<unknown>(API_ENDPOINTS.productsByCategory("697356199f94fbaf3dfa0e82"));
+                // Furniture category ID: 69a1f299c92e1e7aca7f27fb
+                const response = await fetchApi<unknown>(API_ENDPOINTS.productsByCategory("69a1f299c92e1e7aca7f27fb"));
                 const raw = response as { data?: Product[] | { products?: Product[] }; products?: Product[] };
                 let productsData: Product[] = [];
                 if (Array.isArray(raw?.data)) {

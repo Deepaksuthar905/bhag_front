@@ -93,11 +93,11 @@ export default function Navbar() {
     // categoryId used for fetching subcategories on hover (GET /subcategories/category/:categoryId)
     const navItems: { name: string; href: string; categoryId?: string }[] = [
         { name: "Home", href: "/" },
-        { name: "Hardware", href: "/hardware", categoryId: "693c4aa7013df282aa0ede1a" },
-        { name: "Plywood", href: "/plywood", categoryId: "693c4ae6013df282aa0ede1c" },
-        { name: "Fevicol", href: "/fevicol", categoryId: "697356269f94fbaf3dfa0e84" },
-        { name: "Furniture", href: "/furniture", categoryId: "697356199f94fbaf3dfa0e82" },
-        { name: "Handicrafts", href: "/handicraft", categoryId: "693c4b17013df282aa0ede20" },
+        { name: "Hardware", href: "/hardware", categoryId: "69a1f10dc92e1e7aca7f27be" },
+        { name: "Plywood", href: "/plywood", categoryId: "69a1f27ac92e1e7aca7f27e9" },
+        { name: "Fevicol", href: "/fevicol", categoryId: "69a1f28ec92e1e7aca7f27f5" },
+        { name: "Furniture", href: "/furniture", categoryId: "69a1f299c92e1e7aca7f27fb" },
+        { name: "Handicrafts", href: "/handicraft", categoryId: "69a1f2a0c92e1e7aca7f2801" },
     ];
 
     const [hoveredNav, setHoveredNav] = useState<string | null>(null);
