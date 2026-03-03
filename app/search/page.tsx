@@ -88,7 +88,7 @@ function SearchContent() {
 
     // Get product image
     const getProductImage = (images?: string[]): string => {
-        if (!images || images.length === 0) return "/placeholder.png";
+        if (!images || images.length === 0) return "/placeholder.svg";
         const img = images[0];
         if (img.startsWith("http")) return img;
         if (img.startsWith("/")) return img;

@@ -133,9 +133,9 @@ export default function OrdersPage() {
 
     // Get product image (images can be string[] or single string path)
     const getProductImage = (images?: string[] | string): string => {
-        if (!images) return "/placeholder.png";
+        if (!images) return "/placeholder.svg";
         const img = Array.isArray(images) ? images[0] : images;
-        if (!img) return "/placeholder.png";
+        if (!img) return "/placeholder.svg";
         if (img.startsWith("http")) return img;
         const base = API_BASE_URL.replace("/api", "");
         if (img.startsWith("/")) return base + img;

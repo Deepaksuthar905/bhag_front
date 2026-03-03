@@ -84,7 +84,7 @@ export default function FevicolPage() {
             // If it's a full URL, use it directly; otherwise, assume it's in public folder
             return img.startsWith("http") ? img : `/${img}`;
         }
-        return "/placeholder.jpg"; // fallback image
+        return "/placeholder.svg"; // fallback image
     };
 
     // Format price with rupee symbol
@@ -189,7 +189,7 @@ export default function FevicolPage() {
                                         alt={product.name}
                                         onLoad={() => handleImageLoad(product._id)}
                                         onError={(e) => {
-                                            (e.target as HTMLImageElement).src = "/placeholder.jpg";
+                                            (e.target as HTMLImageElement).src = "/placeholder.svg";
                                             handleImageLoad(product._id);
                                         }}
                                         className={`w-full h-full object-cover transition-all duration-700 group-hover:scale-110 ${

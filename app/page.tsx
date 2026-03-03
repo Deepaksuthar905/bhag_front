@@ -229,7 +229,7 @@ export default function HomePage() {
                     const img = product.images[0];
                     return img.startsWith("http") ? img : `/${img}`;
                   }
-                  return "/placeholder.jpg";
+                  return "/placeholder.svg";
                 };
 
                 const formatPrice = (price: number): string => {
@@ -263,7 +263,7 @@ export default function HomePage() {
                         alt={product.name}
                         className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                         onError={(e) => {
-                          (e.target as HTMLImageElement).src = "/placeholder.jpg";
+                          (e.target as HTMLImageElement).src = "/placeholder.svg";
                         }}
                       />
                       <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />

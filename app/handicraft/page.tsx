@@ -81,7 +81,7 @@ export default function HandicraftPage() {
             const img = product.images[0];
             return img.startsWith("http") ? img : `/${img}`;
         }
-        return "/placeholder.jpg";
+        return "/placeholder.svg";
     };
 
     const formatPrice = (price: number): string => {
@@ -182,7 +182,7 @@ export default function HandicraftPage() {
                                         alt={product.name}
                                         onLoad={() => handleImageLoad(product._id)}
                                         onError={(e) => {
-                                            (e.target as HTMLImageElement).src = "/placeholder.jpg";
+                                            (e.target as HTMLImageElement).src = "/placeholder.svg";
                                             handleImageLoad(product._id);
                                         }}
                                         className={`w-full h-full object-cover transition-all duration-700 group-hover:scale-110 ${

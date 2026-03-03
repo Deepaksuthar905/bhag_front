@@ -92,7 +92,7 @@ export default function ProductDetailPage() {
     };
 
     const getProductImage = (imagePath: string): string => {
-        if (!imagePath) return "/placeholder.jpg";
+        if (!imagePath) return "/placeholder.svg";
         return imagePath.startsWith("http") ? imagePath : `/${imagePath}`;
     };
 
@@ -185,7 +185,7 @@ export default function ProductDetailPage() {
         );
     }
 
-    const images = product.images && product.images.length > 0 ? product.images : ["/placeholder.jpg"];
+    const images = product.images && product.images.length > 0 ? product.images : ["/placeholder.svg"];
 
     return (
         <div className="min-h-screen pt-24 pb-12 px-4 bg-gradient-to-b from-gray-50 via-white to-gray-50">
@@ -228,7 +228,7 @@ export default function ProductDetailPage() {
                                 alt={product.name}
                                 className="w-full h-full object-contain p-4"
                                 onError={(e) => {
-                                    (e.target as HTMLImageElement).src = "/placeholder.jpg";
+                                    (e.target as HTMLImageElement).src = "/placeholder.svg";
                                 }}
                             />
                         </div>
@@ -251,7 +251,7 @@ export default function ProductDetailPage() {
                                             alt={`${product.name} ${index + 1}`}
                                             className="w-full h-full object-cover"
                                             onError={(e) => {
-                                                (e.target as HTMLImageElement).src = "/placeholder.jpg";
+                                                (e.target as HTMLImageElement).src = "/placeholder.svg";
                                             }}
                                         />
                                     </button>

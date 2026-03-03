@@ -505,7 +505,7 @@ export default function CheckoutPage() {
 
     // Get product image
     const getProductImage = (images: string[]): string => {
-        if (!images || images.length === 0) return "/placeholder.jpg";
+        if (!images || images.length === 0) return "/placeholder.svg";
         const image = images[0];
         return image.startsWith("http") ? image : `/${image}`;
     };
