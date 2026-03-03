@@ -225,7 +225,7 @@ export default function LoginPage() {
                     </div>
 
                     {/* Social Login Buttons */}
-                    <div className="space-y-3">
+                    {/* <div className="space-y-3">
                         <button
                             type="button"
                             className="w-full flex items-center justify-center gap-3 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors font-['Inter']"
@@ -250,7 +250,7 @@ export default function LoginPage() {
                             </svg>
                             <span className="text-gray-700 font-medium">Continue with Google</span>
                         </button>
-                    </div>
+                    </div> */}
 
                     {/* Register Link */}
                     <div className="mt-6 text-center">

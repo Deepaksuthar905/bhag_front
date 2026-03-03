@@ -54,11 +54,11 @@ export default function Footer() {
                                 <span>+91 89495 99717</span>
                             </a>
                             <a 
-                                href="mailto:bhagwatihardware@gmail.com" 
+                                href="mailto:deepak2003suthar@gmail.com"
                                 className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors text-sm"
                             >
                                 <Mail size={16} />
-                                <span>bhagwatihardware@gmail.com</span>
+                                <span>deepak2003suthar@gmail.com</span>
                             </a>
                             <div className="flex items-start gap-2 text-gray-400 text-sm">
                                 <MapPin size={16} className="mt-0.5 flex-shrink-0" />
@@ -134,7 +134,7 @@ export default function Footer() {
                                 >
                                     <Instagram size={18} />
                                 </a>
-                                <a
+                                {/* <a
                                     href="https://facebook.com"
                                     target="_blank"
                                     rel="noopener noreferrer"
@@ -142,8 +142,8 @@ export default function Footer() {
                                     aria-label="Facebook"
                                 >
                                     <Facebook size={18} />
-                                </a>
-                                <a
+                                </a> */}
+                                {/* <a
                                     href="https://twitter.com"
                                     target="_blank"
                                     rel="noopener noreferrer"
@@ -151,7 +151,7 @@ export default function Footer() {
                                     aria-label="Twitter"
                                 >
                                     <Twitter size={18} />
-                                </a>
+                                </a> */}
                             </div>
                         </div>
                         

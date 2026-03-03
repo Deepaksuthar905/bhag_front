@@ -225,7 +225,7 @@ export default function RegisterPage() {
                         {/* Phone Field */}
                         <div>
                             <label htmlFor="phone" className="block text-sm font-semibold text-gray-700 mb-2 font-['Inter']">
-                                Phone Number
+                                Phone Number <span className="text-red-600">*</span>
                             </label>
                             <div className="relative">
                                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -238,7 +238,10 @@ export default function RegisterPage() {
                                     value={formData.phone}
                                     onChange={handleChange}
                                     required
-                                    placeholder="Enter your phone number"
+                                    minLength={10}
+                                    maxLength={10}
+                                    pattern="[0-9]{10}"
+                                    placeholder="Enter 10-digit phone number"
                                     className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-gray-500 outline-none transition-all bg-gray-50 focus:bg-white text-gray-900 placeholder:text-gray-400"
                                 />
                             </div>
@@ -339,7 +342,7 @@ export default function RegisterPage() {
                     </div>
 
                     {/* Social Register Buttons */}
-                    <div className="space-y-3">
+                    {/* <div className="space-y-3">
                         <button
                             type="button"
                             className="w-full flex items-center justify-center gap-3 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors font-['Inter']"
@@ -364,7 +367,7 @@ export default function RegisterPage() {
                             </svg>
                             <span className="text-gray-700 font-medium">Continue with Google</span>
                         </button>
-                    </div>
+                    </div> */}
 
                     {/* Login Link */}
                     <div className="mt-6 text-center">

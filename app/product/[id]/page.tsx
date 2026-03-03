@@ -412,7 +412,7 @@ export default function ProductDetailPage() {
                                 <Truck className="w-8 h-8 text-gray-600" />
                                 <div>
                                     <p className="font-semibold text-gray-800 text-sm">Fast Delivery</p>
-                                    <p className="text-xs text-gray-500">2-5 business days</p>
+                                    <p className="text-xs text-gray-500">1-2 business days</p>
                                 </div>
                             </div>
                             <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl">
