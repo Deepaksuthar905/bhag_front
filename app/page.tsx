@@ -1,16 +1,24 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChevronRight, Heart, Star } from "lucide-react";
-import { fetchApi, API_ENDPOINTS } from "@/lib/api";
-import { Product, ApiResponse } from "@/lib/types";
+import { Product } from "@/lib/types";
+import { useCachedCategoryProducts } from "@/hooks/useCachedCategoryProducts";
+
+const HOME_FEATURED_CATEGORY_ID = "69a1f2a0c92e1e7aca7f2801";
 
 export default function HomePage() {
   const router = useRouter();
   const [currentSlide, setCurrentSlide] = useState(0);
-  const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
+  const { products: homeCategoryProducts } = useCachedCategoryProducts(
+    HOME_FEATURED_CATEGORY_ID
+  );
+  const featuredProducts = useMemo(
+    () => homeCategoryProducts.slice(0, 8),
+    [homeCategoryProducts]
+  );
 
   const heroSlides = [
     {
@@ -88,33 +96,6 @@ export default function HomePage() {
     }, 5000);
     return () => clearInterval(timer);
   }, [heroSlides.length]);
-
-  useEffect(() => {
-    const fetchProducts = async () => {
-      try {
-        // Handicraft category ID: 69a1f2a0c92e1e7aca7f2801
-        const response = await fetchApi<ApiResponse<Product[]>>(API_ENDPOINTS.productsByCategory("69a1f2a0c92e1e7aca7f2801"));
-        
-        // Handle different response structures
-        let productsData: Product[] = [];
-        if (Array.isArray(response.data)) {
-          productsData = response.data;
-        } else if (response.data && Array.isArray(response.data)) {
-          productsData = response.data;
-        } else if (Array.isArray(response)) {
-          productsData = response;
-        }
-        
-        // Limit to 8 products
-        setFeaturedProducts(productsData.slice(0, 8));
-      } catch (error) {
-        console.error("Failed to fetch products", error);
-        setFeaturedProducts([]);
-      }
-    };
-
-    fetchProducts();
-  }, []);
 
   return (
     <div className="min-h-screen bg-white">

@@ -8,6 +8,11 @@ import { useAuth } from "@/context/AuthContext";
 import { useCart } from "@/context/CartContext";
 import { useWishlist } from "@/context/WishlistContext";
 import { fetchApi, API_ENDPOINTS } from "@/lib/api";
+import {
+  catalogCacheGet,
+  catalogCacheSet,
+  catalogKeys,
+} from "@/lib/catalog-cache";
 
 export default function Navbar() {
     const router = useRouter();
@@ -115,6 +120,13 @@ export default function Navbar() {
             setSubcategories([]);
             return;
         }
+        const cacheKey = catalogKeys.subcategoriesByCategory(item.categoryId);
+        const shared = catalogCacheGet<{ _id: string; name: string; slug?: string }[]>(cacheKey);
+        if (shared) {
+            setSubcategories(shared);
+            setLoadingSubcategories(false);
+            return;
+        }
         setLoadingSubcategories(true);
         setSubcategories([]);
         fetchApi<{ data?: { _id: string; name: string; slug?: string }[] }>(
@@ -125,6 +137,7 @@ export default function Navbar() {
                 const list = Array.isArray(raw?.data) ? raw.data
                     : Array.isArray(raw?.subcategories) ? raw.subcategories
                     : Array.isArray(raw) ? raw : [];
+                catalogCacheSet(cacheKey, list);
                 setSubcategories(list);
             })
             .catch(() => setSubcategories([]))
@@ -187,7 +200,7 @@ export default function Navbar() {
                                 {/* Subcategories dropdown - show below when hovered and has categoryId */}
                                 {item.categoryId && hoveredNav === item.name && (
                                     <div
-                                        className="absolute left-0 top-full pt-1 min-w-[180px] z-50"
+                                        className="absolute left-0 top-full pt-1 min-w-[260px] max-w-[420px] z-50"
                                         onMouseEnter={handleDropdownMouseEnter}
                                         onMouseLeave={handleDropdownMouseLeave}
                                     >
@@ -199,18 +212,25 @@ export default function Navbar() {
                                                     <div className="w-6 h-6 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
                                                 </div>
                                             ) : subcategories.length > 0 ? (
-                                                <ul className="py-2">
-                                                    {subcategories.map((sub) => (
-                                                        <li key={sub._id}>
+                                                <div className="p-3">
+                                                    <div className="flex flex-wrap gap-2">
+                                                        <Link
+                                                            href={item.href}
+                                                            className="inline-flex items-center rounded-full border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-semibold text-gray-800 hover:bg-gray-100 transition-colors font-['Inter']"
+                                                        >
+                                                            All
+                                                        </Link>
+                                                        {subcategories.map((sub) => (
                                                             <Link
+                                                                key={sub._id}
                                                                 href={`${item.href}?subcategory=${encodeURIComponent(sub._id)}`}
-                                                                className="block px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-100 transition-colors font-['Inter']"
+                                                                className="inline-flex items-center rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-colors font-['Inter']"
                                                             >
                                                                 {sub.name}
                                                             </Link>
-                                                        </li>
-                                                    ))}
-                                                </ul>
+                                                        ))}
+                                                    </div>
+                                                </div>
                                             ) : (
                                                 <p className="px-4 py-3 text-sm text-gray-500 font-['Inter']">No subcategories</p>
                                             )}

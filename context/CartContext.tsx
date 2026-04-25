@@ -143,12 +143,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
                     }),
                 });
                 console.log("CartContext - Added to cart via API:", product._id);
-                
-                // Refresh cart from API to get updated data
-                await refreshCart();
             } catch (err) {
                 console.error("CartContext - Failed to add to cart via API:", err);
-                // On error, revert local state change by refreshing from API
                 await refreshCart();
             }
         }
@@ -169,12 +165,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
                     method: "DELETE",
                 });
                 console.log("CartContext - Removed cart item via API:", cartItem._id);
-                
-                // Refresh cart from API to get updated data
-                await refreshCart();
             } catch (err) {
                 console.error("CartContext - Failed to remove cart item via API:", err);
-                // On error, revert local state change by refreshing from API
                 await refreshCart();
             }
         }
@@ -215,12 +207,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
                     }),
                 });
                 console.log("CartContext - Updated cart item quantity via API:", cartItem._id);
-                
-                // Refresh cart from API to get updated data
-                await refreshCart();
             } catch (err) {
                 console.error("CartContext - Failed to update cart item via API:", err);
-                // On error, revert local state change by refreshing from API
                 await refreshCart();
             }
         }
