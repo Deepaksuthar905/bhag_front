@@ -1,51 +1,31 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import React, { useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { Heart } from "lucide-react";
-import { fetchApi, API_ENDPOINTS } from "@/lib/api";
 import { Product } from "@/lib/types";
 import { formatProductListingPrice } from "@/lib/productListing";
 import { useWishlist } from "@/context/WishlistContext";
 import { useAuth } from "@/context/AuthContext";
+import { useCachedSubcategories } from "@/hooks/useCachedSubcategories";
+import { useCachedCategoryProductsWithSubcategory } from "@/hooks/useCachedCategoryProductsWithSubcategory";
 
-export default function PlywoodPage() {
+const PLYWOOD_CATEGORY_ID = "69a1f27ac92e1e7aca7f27e9";
+
+function PlywoodPageContent() {
     const router = useRouter();
-    const [products, setProducts] = useState<Product[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
+    const searchParams = useSearchParams();
+    const subcategoryId = searchParams.get("subcategory");
+    const { subcategories } = useCachedSubcategories(PLYWOOD_CATEGORY_ID);
+    const { products, isLoading } = useCachedCategoryProductsWithSubcategory(
+        PLYWOOD_CATEGORY_ID,
+        subcategoryId
+    );
     const [loadedImages, setLoadedImages] = useState<Set<string>>(new Set());
     const [togglingWishlistId, setTogglingWishlistId] = useState<string | null>(null);
     const { isInWishlist, addToWishlist, removeFromWishlist } = useWishlist();
     const { isAuthenticated } = useAuth();
-
-    useEffect(() => {
-        const fetchProducts = async () => {
-            try {
-                setIsLoading(true);
-                // Plywood category ID: 69a1f27ac92e1e7aca7f27e9
-                const response = await fetchApi<unknown>(API_ENDPOINTS.productsByCategory("69a1f27ac92e1e7aca7f27e9"));
-                const raw = response as { data?: Product[] | { products?: Product[] }; products?: Product[] };
-                let productsData: Product[] = [];
-                if (Array.isArray(raw?.data)) {
-                    productsData = raw.data;
-                } else if (raw?.data && typeof raw.data === "object" && Array.isArray((raw.data as { products?: Product[] }).products)) {
-                    productsData = (raw.data as { products: Product[] }).products;
-                } else if (Array.isArray(raw?.products)) {
-                    productsData = raw.products;
-                } else if (Array.isArray(raw)) {
-                    productsData = raw as Product[];
-                }
-                
-                setProducts(productsData);
-            } catch (error) {
-                console.error("Failed to fetch products", error);
-            } finally {
-                setIsLoading(false);
-            }
-        };
-
-        fetchProducts();
-    }, []);
 
     const handleProductClick = (productId: string) => {
         router.push(`/product/${productId}`);
@@ -108,6 +88,37 @@ export default function PlywoodPage() {
                         </div>
                     </div>
                 </div>
+
+                {/* Subcategories in a horizontal line */}
+                {subcategories.length > 0 && (
+                    <div className="mb-8 animate-fadeInUp">
+                        <div className="flex flex-wrap justify-center gap-2 sm:gap-3 overflow-x-auto pb-2 scrollbar-thin">
+                            <Link
+                                href="/plywood"
+                                className={`flex-shrink-0 px-4 py-2 rounded-full border text-sm font-medium transition-colors shadow-sm ${
+                                    !subcategoryId
+                                        ? "bg-gray-800 text-white border-gray-800"
+                                        : "bg-white border-gray-200 text-gray-700 hover:bg-gray-800 hover:text-white hover:border-gray-800"
+                                }`}
+                            >
+                                All
+                            </Link>
+                            {subcategories.map((sub) => (
+                                <Link
+                                    key={sub._id}
+                                    href={`/plywood?subcategory=${encodeURIComponent(sub._id)}`}
+                                    className={`flex-shrink-0 px-4 py-2 rounded-full border text-sm font-medium transition-colors shadow-sm ${
+                                        subcategoryId === sub._id
+                                            ? "bg-gray-800 text-white border-gray-800"
+                                            : "bg-white border-gray-200 text-gray-700 hover:bg-gray-800 hover:text-white hover:border-gray-800"
+                                    }`}
+                                >
+                                    {sub.name}
+                                </Link>
+                            ))}
+                        </div>
+                    </div>
+                )}
 
                 {isLoading ? (
                     <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
@@ -277,5 +288,24 @@ export default function PlywoodPage() {
                 .delay-300 { animation-delay: 0.3s; }
             `}</style>
         </div>
+    );
+}
+
+function PlywoodPageFallback() {
+    return (
+        <div className="min-h-screen pt-24 pb-12 px-4 bg-gray-50 flex items-center justify-center">
+            <div className="text-center">
+                <div className="w-12 h-12 border-4 border-gray-300 border-t-gray-700 rounded-full animate-spin mx-auto mb-4" />
+                <p className="text-gray-600">Loading...</p>
+            </div>
+        </div>
+    );
+}
+
+export default function PlywoodPage() {
+    return (
+        <Suspense fallback={<PlywoodPageFallback />}>
+            <PlywoodPageContent />
+        </Suspense>
     );
 }

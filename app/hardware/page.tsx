@@ -1,93 +1,31 @@
 "use client";
 
-import React, { useState, useEffect, Suspense } from "react";
+import React, { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Heart } from "lucide-react";
-import { fetchApi, API_ENDPOINTS } from "@/lib/api";
 import { Product } from "@/lib/types";
 import { formatProductListingPrice } from "@/lib/productListing";
 import { useWishlist } from "@/context/WishlistContext";
 import { useAuth } from "@/context/AuthContext";
+import { useCachedSubcategories } from "@/hooks/useCachedSubcategories";
+import { useCachedHardwareProducts } from "@/hooks/useCachedHardwareProducts";
 
 const HARDWARE_CATEGORY_ID = "69a1f10dc92e1e7aca7f27be";
-
-interface Subcategory {
-    _id: string;
-    name: string;
-    slug?: string;
-}
 
 function HardwarePageContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const subcategoryId = searchParams.get("subcategory");
-    const [products, setProducts] = useState<Product[]>([]);
-    const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
+    const { subcategories } = useCachedSubcategories(HARDWARE_CATEGORY_ID);
+    const { products, isLoading } = useCachedHardwareProducts(
+        HARDWARE_CATEGORY_ID,
+        subcategoryId
+    );
     const [loadedImages, setLoadedImages] = useState<Set<string>>(new Set());
     const [togglingWishlistId, setTogglingWishlistId] = useState<string | null>(null);
     const { isInWishlist, addToWishlist, removeFromWishlist } = useWishlist();
     const { isAuthenticated } = useAuth();
-
-    // Fetch subcategories for hardware
-    useEffect(() => {
-        const fetchSubcategories = async () => {
-            try {
-                const res = await fetchApi<any>(API_ENDPOINTS.subcategoriesByCategory(HARDWARE_CATEGORY_ID));
-                const raw = res as any;
-                const list = Array.isArray(raw?.data) ? raw.data
-                    : Array.isArray(raw?.subcategories) ? raw.subcategories
-                    : Array.isArray(raw) ? raw : [];
-                setSubcategories(list);
-            } catch (err) {
-                console.error("Failed to fetch subcategories", err);
-            }
-        };
-        fetchSubcategories();
-    }, []);
-
-    // Fetch products: by subcategory (GET /subcategory/:id) when subcategory selected, else by category
-    useEffect(() => {
-        const fetchProducts = async () => {
-            try {
-                setIsLoading(true);
-                let productsData: Product[] = [];
-
-                if (subcategoryId) {
-                    // Fetch list for this category + subcategory via GET /subcategory/:id
-                    const response = await fetchApi<any>(API_ENDPOINTS.subcategoryById(subcategoryId));
-                    const raw = response as any;
-                    productsData = Array.isArray(raw?.data?.products) ? raw.data.products
-                        : Array.isArray(raw?.products) ? raw.products
-                        : Array.isArray(raw?.data) ? raw.data
-                        : Array.isArray(raw) ? raw : [];
-                } else {
-                    // Fetch all hardware products by category - handle multiple response shapes
-                    const response = await fetchApi<unknown>(API_ENDPOINTS.productsByCategory(HARDWARE_CATEGORY_ID));
-                    const raw = response as { data?: Product[] | { products?: Product[] }; products?: Product[] };
-                    if (Array.isArray(raw?.data)) {
-                        productsData = raw.data;
-                    } else if (raw?.data && typeof raw.data === "object" && Array.isArray((raw.data as { products?: Product[] }).products)) {
-                        productsData = (raw.data as { products: Product[] }).products;
-                    } else if (Array.isArray(raw?.products)) {
-                        productsData = raw.products;
-                    } else if (Array.isArray(raw)) {
-                        productsData = raw as Product[];
-                    }
-                }
-
-                setProducts(productsData);
-            } catch (error) {
-                console.error("Failed to fetch products", error);
-                setProducts([]);
-            } finally {
-                setIsLoading(false);
-            }
-        };
-
-        fetchProducts();
-    }, [subcategoryId]);
 
     const handleProductClick = (productId: string) => {
         router.push(`/product/${productId}`);

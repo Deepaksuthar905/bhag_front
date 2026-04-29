@@ -1,3 +1,5 @@
+import { dedupeGet } from "./fetch-dedupe";
+
 // API Configuration
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://backend-jc8p.onrender.com/api";
 export const AUTH_BASE_URL = process.env.NEXT_PUBLIC_AUTH_URL || "https://backend-jc8p.onrender.com";
@@ -50,12 +52,11 @@ export const getAuthUrl = (endpoint: string): string => {
     return `${AUTH_BASE_URL}${endpoint}`;
 };
 
-// Generic fetch wrapper with error handling
-export async function fetchApi<T>(endpoint: string, options?: RequestInit): Promise<T> {
+async function fetchApiOnce<T>(endpoint: string, options?: RequestInit): Promise<T> {
     const url = getApiUrl(endpoint);
-    
+
     const { headers, ...restOptions } = options || {};
-    
+
     const response = await fetch(url, {
         ...restOptions,
         headers: {
@@ -81,6 +82,15 @@ export async function fetchApi<T>(endpoint: string, options?: RequestInit): Prom
     }
 
     return response.json();
+}
+
+/** GET requests with the same endpoint share one in-flight request (avoids duplicate calls from Strict Mode / multiple components). */
+export async function fetchApi<T>(endpoint: string, options?: RequestInit): Promise<T> {
+    const method = (options?.method || "GET").toUpperCase();
+    if (method === "GET") {
+        return dedupeGet(`GET:${endpoint}`, () => fetchApiOnce<T>(endpoint, options));
+    }
+    return fetchApiOnce<T>(endpoint, options);
 }
 
 // Upload file (e.g. screenshot) - FormData, no Content-Type (browser sets multipart boundary)

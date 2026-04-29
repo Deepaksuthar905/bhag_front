@@ -17,7 +17,7 @@ import {
 import { useAuth } from "@/context/AuthContext";
 import { useCart } from "@/context/CartContext";
 import { useWishlist } from "@/context/WishlistContext";
-import { API_BASE_URL, fetchApi, API_ENDPOINTS } from "@/lib/api";
+import { API_BASE_URL } from "@/lib/api";
 import { ApiResponse } from "@/lib/types";
 
 // Wishlist item from API
@@ -65,11 +65,13 @@ export default function WishlistPage() {
     const router = useRouter();
     const { user, isAuthenticated, isLoading: authLoading } = useAuth();
     const { addToCart } = useCart();
-    const { removeFromWishlist: contextRemoveFromWishlist } = useWishlist();
-    
-    // State
-    const [wishlistItems, setWishlistItems] = useState<WishlistItem[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
+    const {
+        removeFromWishlist: contextRemoveFromWishlist,
+        wishlistProducts,
+        wishlistLoading,
+        refreshWishlist,
+    } = useWishlist();
+
     const [error, setError] = useState("");
     const [removingId, setRemovingId] = useState<string | null>(null);
     const [addingToCartId, setAddingToCartId] = useState<string | null>(null);
@@ -81,62 +83,21 @@ export default function WishlistPage() {
         }
     }, [authLoading, isAuthenticated, router]);
 
-    // Fetch wishlist from API
-    useEffect(() => {
-        const fetchWishlist = async () => {
-            if (!user?._id) return;
-            
-            setIsLoading(true);
-            setError("");
-            
-            try {
-                const response = await fetchApi<unknown>(API_ENDPOINTS.wishlist(user._id));
-                const raw = response as { data?: unknown[] | { products?: unknown[] }; products?: unknown[] };
-                console.log("Wishlist API response:", response);
-                let products: any[] = [];
-                if (raw?.data && typeof raw.data === "object" && !Array.isArray(raw.data) && Array.isArray((raw.data as { products?: unknown[] }).products)) {
-                    products = (raw.data as { products: any[] }).products;
-                } else if (Array.isArray(raw?.data)) {
-                    products = raw.data as any[];
-                } else if (Array.isArray(raw?.products)) {
-                    products = raw.products as any[];
-                } else if (Array.isArray(raw)) {
-                    products = raw as any[];
-                }
-                
-                console.log("Parsed wishlist products:", products);
-                
-                // Map products to WishlistItem format
-                const normalizedItems: WishlistItem[] = products.map((product: any) => {
-                    return {
-                        _id: product._id,
-                        productId: product._id,
-                        name: product.name || "Product",
-                        price: product.price || 0,
-                        images: product.images || [],
-                        description: product.description,
-                        material: product.material,
-                        brand: product.brand,
-                        stock: product.stock,
-                        sizes: product.sizes || [],
-                    };
-                });
-                
-                setWishlistItems(normalizedItems);
-            } catch (err) {
-                console.error("Failed to fetch wishlist:", err);
-                setError("Failed to load wishlist. Please try again.");
-            } finally {
-                setIsLoading(false);
-            }
-        };
+    const wishlistItems: WishlistItem[] = wishlistProducts.map((p) => ({
+        _id: p._id,
+        productId: p._id,
+        name: p.name,
+        price: p.price,
+        images: p.images,
+        description: p.description,
+        material: p.material,
+        brand: p.brand,
+        stock: p.stock,
+        sizes: p.sizes,
+    }));
 
-        if (isAuthenticated && user?._id) {
-            fetchWishlist();
-        } else if (!authLoading && !isAuthenticated) {
-            setIsLoading(false);
-        }
-    }, [user?._id, isAuthenticated, authLoading]);
+    const showWishlistLoading =
+        isAuthenticated && wishlistLoading && wishlistItems.length === 0;
 
     // Get product image
     const getProductImage = (images?: string[]): string => {
@@ -161,12 +122,6 @@ export default function WishlistPage() {
         try {
             // Use context to remove (this updates the navbar count too)
             await contextRemoveFromWishlist(productId);
-            
-            console.log("Removed from wishlist:", productId);
-            
-            // Update local state
-            const updatedItems = wishlistItems.filter(item => item.productId !== productId);
-            setWishlistItems(updatedItems);
         } catch (err) {
             console.error("Failed to remove from wishlist:", err);
             setError("Failed to remove item. Please try again.");
@@ -250,7 +205,7 @@ export default function WishlistPage() {
             {/* Main Content */}
             <div className="max-w-6xl mx-auto px-4 py-8">
                 {/* Loading */}
-                {isLoading && (
+                {showWishlistLoading && (
                     <div className="text-center py-16">
                         <div className="w-12 h-12 border-4 border-gray-300 border-t-gray-800 rounded-full animate-spin mx-auto mb-4"></div>
                         <p className="text-gray-600">Loading wishlist...</p>
@@ -258,12 +213,16 @@ export default function WishlistPage() {
                 )}
 
                 {/* Error */}
-                {error && !isLoading && (
+                {error && !showWishlistLoading && (
                     <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center mb-6">
                         <XCircle className="w-12 h-12 text-red-400 mx-auto mb-4" />
                         <p className="text-red-700 font-medium">{error}</p>
-                        <button 
-                            onClick={() => window.location.reload()}
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setError("");
+                                void refreshWishlist();
+                            }}
                             className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
                         >
                             Try Again
@@ -272,7 +231,7 @@ export default function WishlistPage() {
                 )}
 
                 {/* Empty Wishlist */}
-                {!isLoading && !error && wishlistItems.length === 0 && (
+                {!showWishlistLoading && !error && wishlistItems.length === 0 && (
                     <div className="bg-white rounded-xl shadow-md border border-gray-200 p-12 text-center">
                         <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6">
                             <Heart className="w-10 h-10 text-red-300" />
@@ -294,7 +253,7 @@ export default function WishlistPage() {
                 )}
 
                 {/* Wishlist Items Grid */}
-                {!isLoading && !error && wishlistItems.length > 0 && (
+                {!showWishlistLoading && !error && wishlistItems.length > 0 && (
                     <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-6">
                         {wishlistItems.map((item) => (
                             <div
@@ -396,7 +355,7 @@ export default function WishlistPage() {
                 )}
 
                 {/* Continue Shopping */}
-                {!isLoading && !error && wishlistItems.length > 0 && (
+                {!showWishlistLoading && !error && wishlistItems.length > 0 && (
                     <div className="mt-8 text-center">
                         <Link
                             href="/hardware"
