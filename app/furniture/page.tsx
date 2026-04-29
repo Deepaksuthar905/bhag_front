@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Heart } from "lucide-react";
 import { fetchApi, API_ENDPOINTS } from "@/lib/api";
 import { Product } from "@/lib/types";
+import { formatProductListingPrice } from "@/lib/productListing";
 import { useWishlist } from "@/context/WishlistContext";
 import { useAuth } from "@/context/AuthContext";
 
@@ -204,7 +205,12 @@ export default function FurniturePage() {
                                     <h3 className="font-bold mb-1 sm:mb-2 text-gray-900 group-hover:text-gray-700 transition-all duration-300 text-sm sm:text-lg group-hover:translate-x-1 line-clamp-2">
                                         {product.name}
                                     </h3>
-                                    
+                                    {(product.variantCount ?? 0) > 0 && (
+                                        <p className="text-xs font-semibold text-emerald-700 mb-1">
+                                            {product.variantCount} variant{(product.variantCount ?? 0) === 1 ? "" : "s"}{" "}
+                                            available
+                                        </p>
+                                    )}
                                     {product.material && (
                                         <p className="text-xs text-gray-500 mb-1">
                                             {product.material}
@@ -213,7 +219,7 @@ export default function FurniturePage() {
                                     
                                     <div className="flex items-center justify-between mt-2 sm:mt-3">
                                         <p className="text-base sm:text-xl font-bold text-gray-700 group-hover:scale-105 transition-transform duration-300">
-                                            {formatPrice(product.price)}
+                                            {formatProductListingPrice(product)}
                                         </p>
                                         <button 
                                             onClick={(e) => e.stopPropagation()}

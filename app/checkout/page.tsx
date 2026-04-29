@@ -517,7 +517,7 @@ export default function CheckoutPage() {
 
     // Calculate totals
     const subtotal = cartItems.reduce((total, item) => {
-        const price = item.product?.price || 0;
+        const price = item.price ?? item.product?.price ?? 0;
         return total + price * item.quantity;
     }, 0);
     const shipping = subtotal > 500 ? 0 : 50;
@@ -587,7 +587,7 @@ export default function CheckoutPage() {
             const orderItems = cartItems.map((item) => ({
                 product: item.product?._id,
                 quantity: item.quantity,
-                price: item.product?.price ?? 0,
+                price: item.price ?? item.product?.price ?? 0,
                 size: item.selectedSize ?? undefined,
             }));
 
@@ -1206,7 +1206,7 @@ export default function CheckoutPage() {
 
                             <div className="space-y-4">
                                 {cartItems.map((item) => (
-                                    <div key={item.product._id} className="flex gap-4 p-4 bg-gray-50 rounded-lg">
+                                    <div key={item._id || `${item.product._id}:${item.selectedSize || "default"}`} className="flex gap-4 p-4 bg-gray-50 rounded-lg">
                                         <img
                                             src={getProductImage(item.product?.images || [])}
                                             alt={item.product?.name || "Product"}
@@ -1222,12 +1222,12 @@ export default function CheckoutPage() {
                                                 </p>
                                             )}
                                             <p className="text-sm text-gray-600 mt-1">
-                                                Qty: {item.quantity} × {formatPrice(item.product?.price || 0)}
+                                                Qty: {item.quantity} × {formatPrice(item.price ?? item.product?.price ?? 0)}
                                             </p>
                                         </div>
                                         <div className="text-right">
                                             <p className="font-bold text-gray-900">
-                                                {formatPrice((item.product?.price || 0) * item.quantity)}
+                                                {formatPrice((item.price ?? item.product?.price ?? 0) * item.quantity)}
                                             </p>
                                         </div>
                                     </div>

@@ -8,8 +8,8 @@ import { fetchApi, API_ENDPOINTS } from "@/lib/api";
 interface CartContextType {
     cartItems: CartItem[];
     addToCart: (product: Product, quantity: number, selectedSize?: string) => Promise<void>;
-    removeFromCart: (productId: string) => Promise<void>;
-    updateQuantity: (productId: string, quantity: number) => Promise<void>;
+    removeFromCart: (itemKey: string) => Promise<void>;
+    updateQuantity: (itemKey: string, quantity: number) => Promise<void>;
     clearCart: () => void;
     getCartTotal: () => number;
     getCartCount: () => number;
@@ -18,6 +18,17 @@ interface CartContextType {
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
+
+function resolveUnitPrice(product: Product, selectedSize?: string): number {
+    const key = String(selectedSize || "").trim().toLowerCase();
+    const sizes = Array.isArray(product?.sizes) ? product.sizes : [];
+    const selected = key
+        ? sizes.find((s) => String(s.id || s.value || s.name || s.label || "").trim().toLowerCase() === key)
+            || sizes.find((s) => String(s.name || "").trim().toLowerCase() === key)
+        : null;
+    if (selected?.price != null && !Number.isNaN(Number(selected.price))) return Number(selected.price);
+    return Number(product?.price || 0);
+}
 
 export function CartProvider({ children }: { children: ReactNode }) {
     const { user, isAuthenticated } = useAuth();
@@ -34,7 +45,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
             product: {
                 _id: product._id,
                 name: product.name,
-                price: product.price || apiItem.price || 0,
+                price: apiItem.price ?? product.price ?? 0,
                 images: product.images || [],
                 description: product.description,
                 material: product.material,
@@ -44,6 +55,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
             },
             quantity: apiItem.quantity || 1,
             selectedSize: apiItem.selectedSize,
+            price: apiItem.price ?? product.price ?? 0,
         };
     };
 
@@ -125,7 +137,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
                         : item
                 );
             } else {
-                return [...prevItems, { product, quantity, selectedSize }];
+                const unitPrice = resolveUnitPrice(product, selectedSize);
+                return [...prevItems, { product: { ...product, price: unitPrice }, quantity, selectedSize, price: unitPrice }];
             }
         });
 
@@ -155,12 +168,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
     };
 
     // Remove from cart (with API sync)
-    const removeFromCart = async (productId: string) => {
+    const removeFromCart = async (itemKey: string) => {
         // Find the cart item to get its _id
-        const cartItem = cartItems.find((item) => item.product._id === productId);
+        const cartItem = cartItems.find((item) => item._id === itemKey || item.product._id === itemKey);
         
         // Update local state immediately for better UX
-        setCartItems((prevItems) => prevItems.filter((item) => item.product._id !== productId));
+        setCartItems((prevItems) => prevItems.filter((item) => (item._id || item.product._id) !== itemKey));
 
         // Sync with API if user is authenticated and item has _id
         if (isAuthenticated && user?._id && cartItem?._id) {
@@ -181,23 +194,23 @@ export function CartProvider({ children }: { children: ReactNode }) {
     };
 
     // Update quantity (with API sync)
-    const updateQuantity = async (productId: string, quantity: number) => {
+    const updateQuantity = async (itemKey: string, quantity: number) => {
         if (quantity <= 0) {
-            await removeFromCart(productId);
+            await removeFromCart(itemKey);
             return;
         }
 
         // Find the cart item to get its _id
-        const cartItem = cartItems.find((item) => item.product._id === productId);
+        const cartItem = cartItems.find((item) => item._id === itemKey || item.product._id === itemKey);
         if (!cartItem) {
-            console.warn("CartContext - Item not found for update:", productId);
+            console.warn("CartContext - Item not found for update:", itemKey);
             return;
         }
 
         // Update local state immediately for better UX
         setCartItems((prevItems) =>
             prevItems.map((item) =>
-                item.product._id === productId ? { ...item, quantity } : item
+                (item._id || item.product._id) === itemKey ? { ...item, quantity } : item
             )
         );
 
@@ -210,7 +223,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
                     body: JSON.stringify({
                         userId: user._id,
                         itemId: cartItem._id,
-                        productId: productId,
+                        productId: cartItem.product._id,
+                        selectedSize: cartItem.selectedSize,
                         quantity: quantity,
                     }),
                 });
@@ -233,7 +247,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
     // Get cart total
     const getCartTotal = () => {
-        return cartItems.reduce((total, item) => total + item.product.price * item.quantity, 0);
+        return cartItems.reduce((total, item) => total + (item.price ?? item.product.price ?? 0) * item.quantity, 0);
     };
 
     // Get cart count

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { ChevronRight, Heart, Star } from "lucide-react";
 import { fetchApi, API_ENDPOINTS } from "@/lib/api";
 import { Product, ApiResponse } from "@/lib/types";
+import { formatProductListingPrice } from "@/lib/productListing";
 
 export default function HomePage() {
   const router = useRouter();
@@ -277,7 +278,15 @@ export default function HomePage() {
                       <h3 className="font-semibold mb-2 group-hover:text-gray-600 transition-colors line-clamp-2">
                         {product.name}
                       </h3>
-                      <p className="text-lg font-bold text-gray-900">{formatPrice(product.price)}</p>
+                      {(product.variantCount ?? 0) > 0 && (
+                        <p className="text-xs font-semibold text-emerald-700 mb-1">
+                          {product.variantCount} variant{(product.variantCount ?? 0) === 1 ? "" : "s"}{" "}
+                          available
+                        </p>
+                      )}
+                      <p className="text-lg font-bold text-gray-900">
+                        {formatProductListingPrice(product)}
+                      </p>
                     </div>
                   </Link>
                 );

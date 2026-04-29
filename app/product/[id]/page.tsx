@@ -14,7 +14,7 @@ import {
     Check,
 } from "lucide-react";
 import { fetchApi } from "@/lib/api";
-import { Product, ApiResponse } from "@/lib/types";
+import { Product, ProductDetailPayload, ApiResponse } from "@/lib/types";
 import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
 import { useWishlist } from "@/context/WishlistContext";
@@ -26,11 +26,13 @@ export default function ProductDetailPage() {
     const { isAuthenticated, user } = useAuth();
     const { isInWishlist: checkIsInWishlist, addToWishlist, removeFromWishlist } = useWishlist();
 
-    const [product, setProduct] = useState<Product | null>(null);
+    const [product, setProduct] = useState<ProductDetailPayload | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [selectedImage, setSelectedImage] = useState(0);
     const [quantity, setQuantity] = useState(1);
     const [selectedSize, setSelectedSize] = useState<string>("");
+    /** Which color-variant product row is selected (child Product _id). */
+    const [selectedVariantId, setSelectedVariantId] = useState<string>("");
     const [isAddingToCart, setIsAddingToCart] = useState(false);
     const [addedToCart, setAddedToCart] = useState(false);
     const [showLoginPrompt, setShowLoginPrompt] = useState(false);
@@ -38,19 +40,54 @@ export default function ProductDetailPage() {
     const [isTogglingWishlist, setIsTogglingWishlist] = useState(false);
     
     // Check if current product is in wishlist
-    const isInWishlist = product ? checkIsInWishlist(product._id) : false;
+    const rootProduct: Product | null = product ? (product.root || product) : null;
+    const colorVariants =
+        product?.colorVariants && product.colorVariants.length > 0 ? product.colorVariants : [];
+    // Flipkart-style: show root ("Default") + all variant rows as options.
+    const variantOptions: Product[] = rootProduct
+        ? [rootProduct, ...colorVariants.filter((v) => v._id !== rootProduct._id)]
+        : colorVariants;
+    const activeVariant: Product | null = product
+        ? variantOptions.find((v) => v._id === selectedVariantId) || variantOptions[0] || null
+        : null;
+
+    const displayTitle = product?.root?.name || product?.name || "";
+    const isInWishlist = activeVariant ? checkIsInWishlist(activeVariant._id) : false;
+
+    function sizeKey(s: { value?: string; label?: string; name?: string; id?: string }) {
+        return String(s.value ?? s.label ?? s.name ?? s.id ?? "");
+    }
+
+    const selectedSizeRow = activeVariant?.sizes?.find((s) => sizeKey(s) === selectedSize);
+    const unitPrice =
+        selectedSizeRow && selectedSizeRow.price != null && !Number.isNaN(Number(selectedSizeRow.price))
+            ? Number(selectedSizeRow.price)
+            : (activeVariant?.price ?? 0);
+    const maxStock =
+        selectedSizeRow && selectedSizeRow.stock != null && !Number.isNaN(Number(selectedSizeRow.stock))
+            ? Number(selectedSizeRow.stock)
+            : (activeVariant?.stock ?? 99);
 
     useEffect(() => {
         const fetchProduct = async () => {
             try {
                 setIsLoading(true);
-                const response = await fetchApi<ApiResponse<Product>>(`/product/${params.id}`);
-                setProduct(response.data);
-                // Set default size if available (API may send value, label, or name)
-                if (response.data.sizes && response.data.sizes.length > 0) {
-                    const first = response.data.sizes[0] as { value?: string; label?: string; name?: string };
-                    setSelectedSize(first.value || first.label || first.name || "");
-                }
+                const response = await fetchApi<ApiResponse<ProductDetailPayload>>(`/product/${params.id}`);
+                const d = response.data;
+                setProduct(d);
+                const root = (d.root || d) as Product;
+                const variants = d.colorVariants && d.colorVariants.length > 0 ? d.colorVariants : [];
+                const options = [root, ...variants.filter((v) => v._id !== root._id)];
+                // If user opened a variant URL, default selection to that variant; else select root.
+                const openedIsVariant = !!(d.isVariant && d._id && d._id !== root._id);
+                const pickId = openedIsVariant ? d._id : root._id;
+                setSelectedVariantId(pickId);
+                const vDoc = options.find((v) => v._id === pickId) || options[0] || root;
+                const sizes = vDoc.sizes || [];
+                    const first = sizes[0] as { value?: string; label?: string; name?: string; id?: string } | undefined;
+                    setSelectedSize(first ? sizeKey(first) : "");
+                setSelectedImage(0);
+                setQuantity(1);
             } catch (error) {
                 console.error("Failed to fetch product", error);
             } finally {
@@ -63,6 +100,15 @@ export default function ProductDetailPage() {
         }
     }, [params.id]);
 
+    useEffect(() => {
+        if (!activeVariant?.sizes?.length) return;
+        const keys = activeVariant.sizes.map((s) => sizeKey(s));
+        if (!selectedSize || !keys.includes(selectedSize)) {
+            const first = activeVariant.sizes[0];
+            setSelectedSize(sizeKey(first));
+        }
+    }, [selectedVariantId, activeVariant]);
+
     // Toggle wishlist using context
     const handleToggleWishlist = async () => {
         if (!isAuthenticated || !user?._id) {
@@ -70,17 +116,17 @@ export default function ProductDetailPage() {
             return;
         }
 
-        if (!product || isTogglingWishlist) return;
+        if (!activeVariant || isTogglingWishlist) return;
 
         setWishlistAnimation(true);
         setIsTogglingWishlist(true);
 
         try {
             if (isInWishlist) {
-                await removeFromWishlist(product._id);
+                await removeFromWishlist(activeVariant._id);
                 console.log("Removed from wishlist");
             } else {
-                await addToWishlist(product._id);
+                await addToWishlist(activeVariant._id);
                 console.log("Added to wishlist");
             }
         } catch (err) {
@@ -102,13 +148,13 @@ export default function ProductDetailPage() {
 
     const handleQuantityChange = (delta: number) => {
         const newQuantity = quantity + delta;
-        if (newQuantity >= 1 && newQuantity <= (product?.stock || 99)) {
+        if (newQuantity >= 1 && newQuantity <= maxStock) {
             setQuantity(newQuantity);
         }
     };
 
     const handleAddToCart = async () => {
-        if (!product) return;
+        if (!activeVariant) return;
 
         // Check if user is logged in
         if (!isAuthenticated) {
@@ -120,7 +166,7 @@ export default function ProductDetailPage() {
         
         try {
             // Add to cart (now syncs with API)
-            await addToCart(product, quantity, selectedSize);
+            await addToCart(activeVariant, quantity, selectedSize);
             
             // Show success feedback
             setAddedToCart(true);
@@ -169,7 +215,7 @@ export default function ProductDetailPage() {
         );
     }
 
-    if (!product) {
+    if (!product || !activeVariant) {
         return (
             <div className="min-h-screen pt-24 pb-12 px-4 flex items-center justify-center">
                 <div className="text-center">
@@ -185,7 +231,7 @@ export default function ProductDetailPage() {
         );
     }
 
-    const images = product.images && product.images.length > 0 ? product.images : ["/placeholder.svg"];
+    const images = activeVariant.images && activeVariant.images.length > 0 ? activeVariant.images : ["/placeholder.svg"];
 
     return (
         <div className="min-h-screen pt-24 pb-12 px-4 bg-gradient-to-b from-gray-50 via-white to-gray-50">
@@ -204,7 +250,7 @@ export default function ProductDetailPage() {
                     <div className="space-y-4">
                         {/* Main Image */}
                         <div className="relative aspect-square bg-white rounded-2xl overflow-hidden shadow-lg border border-gray-100">
-                            {product.stock && product.stock > 0 && (
+                            {maxStock > 0 && (
                                 <span className="absolute top-4 left-4 bg-gradient-to-r from-green-500 to-emerald-500 text-white px-4 py-1.5 text-sm font-bold rounded-full z-10 shadow-lg">
                                     In Stock
                                 </span>
@@ -225,7 +271,7 @@ export default function ProductDetailPage() {
                             </button>
                             <img
                                 src={getProductImage(images[selectedImage])}
-                                alt={product.name}
+                                alt={displayTitle}
                                 className="w-full h-full object-contain p-4"
                                 onError={(e) => {
                                     (e.target as HTMLImageElement).src = "/placeholder.svg";
@@ -248,7 +294,7 @@ export default function ProductDetailPage() {
                                     >
                                         <img
                                             src={getProductImage(img)}
-                                            alt={`${product.name} ${index + 1}`}
+                                            alt={`${displayTitle} ${index + 1}`}
                                             className="w-full h-full object-cover"
                                             onError={(e) => {
                                                 (e.target as HTMLImageElement).src = "/placeholder.svg";
@@ -271,69 +317,148 @@ export default function ProductDetailPage() {
 
                         {/* Product Name */}
                         <h1 className="text-3xl lg:text-4xl font-bold text-gray-900">
-                            {product.name}
+                            {displayTitle}
                         </h1>
 
+                        {colorVariants.length > 0 && (
+                            <p className="text-sm font-semibold text-emerald-700">
+                                {colorVariants.length} colour{colorVariants.length === 1 ? "" : "s"} available
+                            </p>
+                        )}
+
                         {/* Price */}
-                        <div className="flex items-baseline gap-3">
+                        <div className="flex items-baseline gap-3 flex-wrap">
                             <span className="text-4xl font-bold text-gray-700">
-                                {formatPrice(product.price)}
+                                {formatPrice(unitPrice)}
                             </span>
-                            {product.unit && (
-                                <span className="text-gray-500">per {product.unit}</span>
+                            {activeVariant.unit && (
+                                <span className="text-gray-500">per {activeVariant.unit}</span>
                             )}
+                            {product.priceMin != null &&
+                                product.priceMax != null &&
+                                product.priceMin !== product.priceMax &&
+                                colorVariants.length === 0 && (
+                                    <span className="text-sm text-gray-500">
+                                        Range {formatPrice(product.priceMin)} – {formatPrice(product.priceMax)}
+                                    </span>
+                                )}
                         </div>
 
                         {/* Description */}
-                        {product.description && (
+                        {(activeVariant.description || product.description) && (
                             <p className="text-gray-600 leading-relaxed">
-                                {product.description}
+                                {activeVariant.description || product.description}
                             </p>
+                        )}
+
+                        {/* Colour / variant (same parent) */}
+                        {variantOptions.length > 1 && (
+                            <div>
+                                <label className="block text-sm font-semibold text-gray-700 mb-3">
+                                    Select Option
+                                </label>
+                                <div className="flex flex-wrap gap-3">
+                                    {variantOptions.map((v) => {
+                                        const label =
+                                            v._id === rootProduct?._id
+                                                ? "Default"
+                                                : (v.color?.trim() || v.name || "Option");
+                                        const selected = v._id === selectedVariantId;
+                                        const thumb =
+                                            v.images && v.images.length > 0 ? v.images[0] : "/placeholder.svg";
+                                        return (
+                                            <button
+                                                key={v._id}
+                                                type="button"
+                                                onClick={() => {
+                                                    setSelectedVariantId(v._id);
+                                                    setSelectedImage(0);
+                                                    setQuantity(1);
+                                                }}
+                                                className={`flex flex-col items-center gap-1.5 rounded-xl border-2 p-2 transition-all min-w-[4.5rem] ${
+                                                    selected
+                                                        ? "border-gray-900 bg-gray-50 shadow-md"
+                                                        : "border-gray-200 hover:border-gray-400"
+                                                }`}
+                                            >
+                                                <span className="relative w-14 h-14 rounded-lg overflow-hidden bg-gray-100 border border-gray-200">
+                                                    <img
+                                                        src={getProductImage(thumb)}
+                                                        alt=""
+                                                        className="w-full h-full object-cover"
+                                                        onError={(e) => {
+                                                            (e.target as HTMLImageElement).src = "/placeholder.svg";
+                                                        }}
+                                                    />
+                                                </span>
+                                                <span className="text-xs font-medium text-gray-800 text-center max-w-[5.5rem] leading-tight">
+                                                    {label}
+                                                </span>
+                                                <span className="text-xs text-gray-600">{formatPrice(v.price)}</span>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
                         )}
 
                         {/* Product Info */}
                         <div className="grid grid-cols-2 gap-4 py-4 border-y border-gray-200">
-                            {product.material && (
+                            {(activeVariant.material || product.material) && (
                                 <div>
                                     <span className="text-sm text-gray-500">Material</span>
-                                    <p className="font-semibold text-gray-800">{product.material}</p>
+                                    <p className="font-semibold text-gray-800">
+                                        {activeVariant.material || product.material}
+                                    </p>
                                 </div>
                             )}
-                            {product.brand && (
+                            {(activeVariant.brand || product.brand) && (
                                 <div>
                                     <span className="text-sm text-gray-500">Brand</span>
-                                    <p className="font-semibold text-gray-800">{product.brand}</p>
+                                    <p className="font-semibold text-gray-800">
+                                        {activeVariant.brand || product.brand}
+                                    </p>
                                 </div>
                             )}
-                            {product.stock !== undefined && (
-                                <div>
-                                    <span className="text-sm text-gray-500">Available Stock</span>
-                                    <p className="font-semibold text-gray-800">{product.stock} {product.unit || "pieces"}</p>
-                                </div>
-                            )}
+                            <div>
+                                <span className="text-sm text-gray-500">Available Stock</span>
+                                <p className="font-semibold text-gray-800">
+                                    {maxStock} {activeVariant.unit || product.unit || "pieces"}
+                                </p>
+                            </div>
                         </div>
 
-                        {/* Size Selection - API sends sizes as [{ name: "1" }, { name: "2" }, ...] */}
-                        {product.sizes && product.sizes.length > 0 && (
+                        {/* Size Selection */}
+                        {activeVariant.sizes && activeVariant.sizes.length > 0 && (
                             <div>
                                 <label className="block text-sm font-semibold text-gray-700 mb-3">
                                     Select Size
                                 </label>
                                 <div className="flex flex-wrap gap-3">
-                                    {product.sizes.map((size: { _id?: string; value?: string; label?: string; name?: string }, idx: number) => {
-                                        const sizeValue = size.value || size.label || size.name || "";
-                                        const displayName = size.name || size.label || size.value || sizeValue;
+                                    {activeVariant.sizes.map((size, idx: number) => {
+                                        const sk = sizeKey(size);
+                                        const displayName =
+                                            size.name || size.label || size.value || sk;
+                                        const sizePrice =
+                                            size.price != null && !Number.isNaN(Number(size.price))
+                                                ? Number(size.price)
+                                                : null;
                                         return (
                                             <button
-                                                key={size._id ?? `size-${idx}`}
-                                                onClick={() => setSelectedSize(sizeValue)}
+                                                key={size._id ?? `size-${idx}-${sk}`}
+                                                onClick={() => setSelectedSize(sk)}
                                                 className={`px-4 py-2 rounded-lg border-2 font-medium transition-all ${
-                                                    selectedSize === sizeValue
+                                                    selectedSize === sk
                                                         ? "border-gray-700 bg-gray-700 text-white"
                                                         : "border-gray-300 text-gray-700 hover:border-gray-500"
                                                 }`}
                                             >
-                                                {displayName}
+                                                <span className="block">{displayName}</span>
+                                                {sizePrice != null && (
+                                                    <span className="block text-xs opacity-90 mt-0.5">
+                                                        {formatPrice(sizePrice)}
+                                                    </span>
+                                                )}
                                             </button>
                                         );
                                     })}
@@ -360,14 +485,17 @@ export default function ProductDetailPage() {
                                     </span>
                                     <button
                                         onClick={() => handleQuantityChange(1)}
-                                        disabled={quantity >= (product.stock || 99)}
+                                        disabled={quantity >= maxStock}
                                         className="p-3 hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                         <Plus className="w-5 h-5 text-gray-600" />
                                     </button>
                                 </div>
                                 <span className="text-gray-500">
-                                    Total: <span className="font-bold text-gray-800">{formatPrice(product.price * quantity)}</span>
+                                    Total:{" "}
+                                    <span className="font-bold text-gray-800">
+                                        {formatPrice(unitPrice * quantity)}
+                                    </span>
                                 </span>
                             </div>
                         </div>
@@ -376,7 +504,7 @@ export default function ProductDetailPage() {
                         <div className="flex gap-4 pt-4">
                             <button
                                 onClick={handleAddToCart}
-                                disabled={isAddingToCart || (product.stock !== undefined && product.stock <= 0)}
+                                disabled={isAddingToCart || maxStock <= 0}
                                 className={`flex-1 flex items-center justify-center gap-3 py-4 px-6 rounded-xl font-bold text-lg transition-all transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none ${
                                     addedToCart
                                         ? "bg-green-500 text-white"

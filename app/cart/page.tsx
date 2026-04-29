@@ -38,7 +38,7 @@ export default function CartPage() {
 
     // Calculate totals
     const subtotal = cartItems.reduce((total, item) => {
-        const price = item.product?.price || 0;
+        const price = item.price ?? item.product?.price ?? 0;
         return total + price * item.quantity;
     }, 0);
 
@@ -46,16 +46,16 @@ export default function CartPage() {
     const total = subtotal + shipping;
 
     // Handle quantity change (context with API sync)
-    const handleQuantityChange = async (productId: string, delta: number) => {
-        const item = cartItems.find((cartItem) => cartItem.product._id === productId);
+    const handleQuantityChange = async (itemKey: string, delta: number) => {
+        const item = cartItems.find((cartItem) => (cartItem._id || cartItem.product._id) === itemKey);
         if (!item) return;
         const newQuantity = Math.max(1, item.quantity + delta);
-        await updateQuantity(productId, newQuantity);
+        await updateQuantity(itemKey, newQuantity);
     };
 
     // Handle remove item (context with API sync)
-    const handleRemoveItem = async (productId: string) => {
-        await removeFromCart(productId);
+    const handleRemoveItem = async (itemKey: string) => {
+        await removeFromCart(itemKey);
     };
 
     // Handle order
@@ -191,10 +191,12 @@ export default function CartPage() {
                     <div className="lg:col-span-2 space-y-4">
                         {cartItems.map((item) => {
                             const product = item.product;
+                            const itemKey = item._id || `${product._id}:${item.selectedSize || "default"}`;
+                            const unitPrice = item.price ?? product.price ?? 0;
 
                             return (
                             <div
-                                key={product._id}
+                                key={itemKey}
                                 className="bg-white rounded-xl shadow-md border border-gray-200 p-4 sm:p-6"
                             >
                                 <div className="flex gap-4">
@@ -231,7 +233,7 @@ export default function CartPage() {
                                                 )}
                                             </div>
                                             <button
-                                                onClick={() => handleRemoveItem(product._id)}
+                                                onClick={() => handleRemoveItem(itemKey)}
                                                 className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                                             >
                                                 <Trash2 className="w-5 h-5" />
@@ -242,7 +244,7 @@ export default function CartPage() {
                                         <div className="flex items-end justify-between mt-4">
                                             <div className="flex items-center gap-2">
                                                 <button
-                                                    onClick={() => handleQuantityChange(product._id, -1)}
+                                                    onClick={() => handleQuantityChange(itemKey, -1)}
                                                     disabled={item.quantity <= 1}
                                                     className="p-1.5 border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                                                 >
@@ -252,7 +254,7 @@ export default function CartPage() {
                                                     {item.quantity}
                                                 </span>
                                                 <button
-                                                    onClick={() => handleQuantityChange(product._id, 1)}
+                                                    onClick={() => handleQuantityChange(itemKey, 1)}
                                                     className="p-1.5 border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors"
                                                 >
                                                     <Plus className="w-4 h-4 text-gray-600" />
@@ -260,10 +262,10 @@ export default function CartPage() {
                                             </div>
                                             <div className="text-right">
                                                 <p className="text-lg font-bold text-gray-900">
-                                                    {formatPrice((product.price || 0) * item.quantity)}
+                                                    {formatPrice(unitPrice * item.quantity)}
                                                 </p>
                                                 <p className="text-sm text-gray-500">
-                                                    {formatPrice(product.price || 0)} each
+                                                    {formatPrice(unitPrice)} each
                                                 </p>
                                             </div>
                                         </div>

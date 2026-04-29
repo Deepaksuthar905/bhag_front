@@ -7,9 +7,11 @@ export const API_ENDPOINTS = {
     // Product endpoints (uses /api prefix)
     products: "/products",
     productById: (id: string) => `/product/${id}`,
-    productsByCategory: (categoryId: string) => `/products/category/${categoryId}`,
+    /** Root products only + variant counts (Flipkart-style listing). */
+    productsByCategory: (categoryId: string) =>
+        `/products/category/${categoryId}?groupVariants=1`,
     subcategoriesByCategory: (categoryId: string) => `/subcategories/category/${categoryId}`,
-    subcategoryById: (id: string) => `/subcategory/${id}`,
+    subcategoryById: (id: string) => `/subcategory/${id}?groupVariants=1`,
     // Cart endpoints
     cart: (userId: string) => `/cart/?userId=${userId}`,
     addToCart: "/cart/add",
